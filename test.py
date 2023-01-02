@@ -16,11 +16,8 @@ replay_list = []
 # for replay in replay_list:
 #     pass
 
-replay = Game("F:\Coding and Programming\My Projects\VSC\py-slippi\Modern Replays\ACID#441 (Peach) vs NUT#356 (Falco) on FoD - 12-15-22 01.39am .slp")
+replay: ComboComputer = ComboComputer.prime_replay("Walnut356/py-slippi/Modern Replays/ACTI#799 (Falcon) vs NUT#356 (Falco) on DL - 12-15-22 02.04am .slp")
 
-all_frames = replay.frames
+replay.combo_compute("NUT#356")
 
-for frame in all_frames:
-    if StateFlags.HIT_STUN in frame.ports[0].leader.post.flags:
-        print(frame.index)
-        print(frame.ports[0].leader.post.flags.HIT_STUN)
+print(replay.combos)

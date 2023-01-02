@@ -1,6 +1,6 @@
 from .util import *
 from .game import Game
-from . import id as sid
+from .id import ActionState, Stage
 from .event import Start, Frame, StateFlags
 
 combo_leniency = 45
@@ -85,7 +85,7 @@ class ComboComputer:
             opnt_is_teching = is_teching(opnt_action_state)
             opnt_is_downed = is_downed(opnt_action_state)
             opnt_is_dying = is_dying(opnt_action_state)
-            opnt_is_offstage = is_offstage(opponent_frame, )
+            opnt_is_offstage = is_offstage(opponent_frame, self.rules.start.stage)
             opnt_is_dodging = is_dodging(opnt_action_state)
             opnt_is_shielding = is_shielding(opnt_action_state)
             opnt_is_shield_broken = is_shield_broken(opnt_action_state)
@@ -191,7 +191,7 @@ class ComboComputer:
 
 
 def is_damaged(action_state) -> bool:
-    return (action_state >= 75 and action_state <= 91)
+    return (action_state >= ActionState.DAMAGE_START and action_state <= ActionState.DAMAGE_END)
 
 def is_in_hitstun(flags) -> bool:
     if StateFlags.HIT_STUN in flags:
@@ -206,34 +206,63 @@ def is_in_hitlag(flags) -> bool:
         return False
 
 def is_grabbed(action_state) -> bool:
-    pass
+    return (action_state >= ActionState.CAPTURE_START and action_state <= CAPTURE_END)
 
 def is_cmd_grabbed(action_state) -> bool:
-    pass
+    return (((action_state >= ActionState.COMMAND_GRAB_RANGE1_START and action_state <= ActionState.COMMAND_GRAB_RANGE1_END)
+        or (action_state >= ActionState.COMMAND_GRAB_RANGE2_START and action_state <= ActionState.COMMAND_GRAB_RANGE2_END))
+        and not state is ActionState.BARREL_WAIT)
+
+def is_teching(action_state) -> bool:
+    return (action_state >= ActionState.TECH_START and action_state <= ActionState.TECH_END)
+
+def is_dying(action_state) -> bool:
+    return (action_state >= ActionState.DYING_START and action_state <= ActionState.DYING_END)
+
+def is_downed(action_state) -> bool:
+    return (action_state >= ActionState.DOWN_START and action_state <= ActionState.DOWN_END)
+
+def is_offstage(curr_frame: Frame, stage) -> bool:
+    stageBounds = [0, 0]
+
+    match stage:
+        case Stage.FOUNTAIN_OF_DREAMS:
+            stageBounds = [-64, 64]
+        case Stage.YOSHIS_STORY:
+            stageBounds = [-56, 56]
+        case Stage.DREAMLAND:
+            stageBounds = [-73, 73]
+        case Stage.POKEMON_STADIUM:
+            stageBounds = [-88, 88]
+        case Stage.BATTLEFIELD:
+            stageBounds = [-67, 67]
+        case Stage.FINAL_DESTINATION:
+            stageBounds = [-89, 89]
+
+    if(curr_frame.position.x > stageBounds[0] and curr_frame.position.x < stageBounds[1]):
+        return True
+
+    else:
+        return False
+
+def is_shielding(action_state) -> bool:
+    return (action_state >= ActionState.GUARD_START and action_state <= ActionState.GUARD_END)
+
+def is_shield_broken(action_state) -> bool:
+    return (action_state >= ActionState.GUARD_BREAK_START and action_state <= ActionState.GUARD_BREAK_END)
+
+def is_dodging(action_state) -> bool:
+    return (action_state >= ActionState.DODGE_START and action_state <= ActionState.DODGE_END)
+
+def did_lose_stock(curr_frame, prev_frame) -> bool:
+  if not curr_frame or  not prev_frame:
+    return False
+
+  return (prev_frame.stocks - curr_frame.stocks) > 0
 
 def calc_damage_taken(curr_frame, prev_frame) -> float:
-    pass
 
-def is_teching():
-    pass
+    percent = frame.percent
+    prevPercent = prevFrame.percent
 
-def is_dying():
-    pass
-
-def is_downed():
-    pass
-
-def is_offstage():
-    pass
-
-def is_shielding():
-    pass
-
-def is_shield_broken():
-    pass
-
-def is_dodging():
-    pass
-
-def did_lose_stock():
-    pass
+    return percent - prevPercent
