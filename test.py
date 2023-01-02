@@ -1,8 +1,9 @@
 from slippi import *
 import os
+from slippi.combo import ComboComputer
 from slippi.event import StateFlags
 
-path = "./"
+path: os.PathLike = "/workspaces/py-slippi/Modern Replays/Game_20221227T202334.slp"
 
 replay_list = []
 
@@ -16,8 +17,19 @@ replay_list = []
 # for replay in replay_list:
 #     pass
 
-replay: ComboComputer = ComboComputer.prime_replay("Walnut356/py-slippi/Modern Replays/ACTI#799 (Falcon) vs NUT#356 (Falco) on DL - 12-15-22 02.04am .slp")
+replay: ComboComputer = ComboComputer()
 
+replay.prime_replay(path)
 replay.combo_compute("NUT#356")
 
 print(replay.combos)
+
+for c in replay.combos:
+
+    print(c.player)
+    print(len(c.moves))
+    print(c.did_kill)
+    print(c.start_frame)
+    print(c.end_frame)
+    print(c.start_percent)
+    print(c.end_percent)

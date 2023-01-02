@@ -3,43 +3,42 @@ from .game import Game
 from .id import ActionState, Stage
 from .event import Start, Frame, StateFlags
 
-combo_leniency = 45
+COMBO_LENIENCY = 45
 
-class ComboEvent(enum):
+class ComboEvent(Enum):
     COMBO_START = "COMBO_START"
     COMBO_EXTEND = "COMBO_EXTEND"
     COMBO_END = "COMBO_END"
+  
+class MoveLanded:
+    player: str = ""
+    frame: int = 0
+    move_id: int = 0
+    hit_count: int = 0
+    damage: float = 0.0
 
 class ComboData:
-    player: str
-    moves: list
-    did_kill: bool
-    
-    start_percent: float
-    end_percent: float
-    
-    start_frame: int
-    end_frame: int
-    
-class MoveLanded:
-    player: str
-    frame: int
-    move_id: int
-    hit_count: int
-    damage: float
+    player: str = ""
+    moves: list[MoveLanded] = []
+    did_kill: bool = False
+    start_percent: float = 0.0
+    current_percent: float = 0.0
+    end_percent: float = 0.0
+    start_frame: int = 0
+    end_frame: int = 0
 
 class ComboState:
-    combo: ComboData
-    move: MoveLanded
+    combo: ComboData = ComboData()
+    move: MoveLanded = MoveLanded()
     reset_counter: int = 0
-    last_hit_animation: int
-    event: ComboEvent
-    
+    last_hit_animation = None
+    event: ComboEvent = None
+ 
 class PlayerIndex:
     player: Start.Player
     code: str
     port: int
-    
+   
     def __init__(self, player, code, port):
         self.player = player
         self.code = code
@@ -51,16 +50,23 @@ class ComboComputer:
     players: list[PlayerIndex]
     all_frames: list[Frame]
     combo_state: ComboState
-    
-    def prime_replay(self, replay: Game):
-        self.rules = replay.start
-        for i in range(0,2):
-            self.players.append(
-                PlayerIndex(replay.start.players[i],
-                replay.metadata.players[i].connect_code, i))
+
+    def __init__(self):
+        self.rules = None
         self.combos = []
-        self.all_frames = Game.frames
+        self.players = []
+        self.all_frames = []
+        self.combo_state = None
     
+    def prime_replay(self, replay_path):
+        parsed_replay = Game(replay_path)
+        self.rules = parsed_replay.start
+        for i in range(0,2):
+            self.players.append(PlayerIndex(parsed_replay.start.players[i], parsed_replay.metadata.players[i].connect_code, i))
+        self.combos = []
+        self.all_frames = parsed_replay.frames
+        self.combo_state = ComboState()
+
     def combo_compute(self, connect_code: str):
         for player in self.players:
             if player.code == connect_code:
@@ -85,12 +91,12 @@ class ComboComputer:
             opnt_is_teching = is_teching(opnt_action_state)
             opnt_is_downed = is_downed(opnt_action_state)
             opnt_is_dying = is_dying(opnt_action_state)
-            opnt_is_offstage = is_offstage(opponent_frame, self.rules.start.stage)
+            opnt_is_offstage = is_offstage(opponent_frame, self.rules.stage)
             opnt_is_dodging = is_dodging(opnt_action_state)
             opnt_is_shielding = is_shielding(opnt_action_state)
             opnt_is_shield_broken = is_shield_broken(opnt_action_state)
             opnt_damage_taken = calc_damage_taken(opponent_frame, prev_opponent_frame)
-            opnt_did_lose_stock = did_lose_stock()
+            opnt_did_lose_stock = did_lose_stock(opponent_frame, prev_opponent_frame)
             
 # Keep track of whether actionState changes after a hit. Used to compute move count
 # When purely using action state there was a bug where if you did two of the same
@@ -112,8 +118,9 @@ class ComboComputer:
                 opnt_is_in_hitlag or
                 opnt_is_in_hitstun):
                 
-                comb_started = False
-                if self.combo_state.combo.player is None:
+                combo_started = False
+                if self.combo_state.combo is None:
+                    self.combo_state.combo = ComboData()
                     self.combo_state.combo.player = player.code
                     self.combo_state.combo.moves = []
                     self.combo_state.combo.did_kill = False
@@ -129,6 +136,7 @@ class ComboComputer:
                 
                 if opnt_damage_taken:
                     if self.combo_state.last_hit_animation is None:
+                        self.combo_state.move = MoveLanded()
                         self.combo_state.move.player = player.code
                         self.combo_state.move.frame = frame.index
                         self.combo_state.move.move_id = player_frame.last_attack_landed
@@ -177,7 +185,7 @@ class ComboComputer:
                 self.combo_state.combo.did_kill = True
                 should_terminate = True
             
-            if self.combo_state.reset_counter > combo_leniency:
+            if self.combo_state.reset_counter > COMBO_LENIENCY:
                 should_terminate = True
             
             if should_terminate:
@@ -187,6 +195,7 @@ class ComboComputer:
                 
                 self.combo_state.combo = None
                 self.combo_state.move = None
+            
 
 
 
@@ -206,12 +215,12 @@ def is_in_hitlag(flags) -> bool:
         return False
 
 def is_grabbed(action_state) -> bool:
-    return (action_state >= ActionState.CAPTURE_START and action_state <= CAPTURE_END)
+    return (action_state >= ActionState.CAPTURE_START and action_state <= ActionState.CAPTURE_END)
 
 def is_cmd_grabbed(action_state) -> bool:
     return (((action_state >= ActionState.COMMAND_GRAB_RANGE1_START and action_state <= ActionState.COMMAND_GRAB_RANGE1_END)
         or (action_state >= ActionState.COMMAND_GRAB_RANGE2_START and action_state <= ActionState.COMMAND_GRAB_RANGE2_END))
-        and not state is ActionState.BARREL_WAIT)
+        and not action_state is ActionState.BARREL_WAIT)
 
 def is_teching(action_state) -> bool:
     return (action_state >= ActionState.TECH_START and action_state <= ActionState.TECH_END)
@@ -223,23 +232,24 @@ def is_downed(action_state) -> bool:
     return (action_state >= ActionState.DOWN_START and action_state <= ActionState.DOWN_END)
 
 def is_offstage(curr_frame: Frame, stage) -> bool:
-    stageBounds = [0, 0]
+    stage_bounds = [0, 0]
 
     match stage:
         case Stage.FOUNTAIN_OF_DREAMS:
-            stageBounds = [-64, 64]
+            stage_bounds = [-64, 64]
         case Stage.YOSHIS_STORY:
-            stageBounds = [-56, 56]
-        case Stage.DREAMLAND:
-            stageBounds = [-73, 73]
+            stage_bounds = [-56, 56]
+        case Stage.DREAM_LAND_N64:
+            stage_bounds = [-73, 73]
         case Stage.POKEMON_STADIUM:
-            stageBounds = [-88, 88]
+            stage_bounds = [-88, 88]
         case Stage.BATTLEFIELD:
-            stageBounds = [-67, 67]
+            stage_bounds = [-67, 67]
         case Stage.FINAL_DESTINATION:
-            stageBounds = [-89, 89]
+            stage_bounds = [-89, 89]
 
-    if(curr_frame.position.x > stageBounds[0] and curr_frame.position.x < stageBounds[1]):
+    if (curr_frame.position.x < stage_bounds[0] or
+        curr_frame.position.x > stage_bounds[1]):
         return True
 
     else:
@@ -255,14 +265,13 @@ def is_dodging(action_state) -> bool:
     return (action_state >= ActionState.DODGE_START and action_state <= ActionState.DODGE_END)
 
 def did_lose_stock(curr_frame, prev_frame) -> bool:
-  if not curr_frame or  not prev_frame:
-    return False
+    if not curr_frame or  not prev_frame:
+        return False
 
-  return (prev_frame.stocks - curr_frame.stocks) > 0
+    return (prev_frame.stocks - curr_frame.stocks) > 0
 
 def calc_damage_taken(curr_frame, prev_frame) -> float:
+    percent = curr_frame.damage
+    prev_percent = prev_frame.damage
 
-    percent = frame.percent
-    prevPercent = prevFrame.percent
-
-    return percent - prevPercent
+    return percent - prev_percent

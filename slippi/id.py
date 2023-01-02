@@ -34,7 +34,6 @@ class ActionState(IntEnum):
     AERIAL_ATTACK_START = 65
     AERIAL_ATTACK_END = 74
 # Command Grabs
-    BARREL_WAIT = 293
     COMMAND_GRAB_RANGE1_START = 266
     COMMAND_GRAB_RANGE1_END = 304
 
