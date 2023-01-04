@@ -68,19 +68,22 @@ class ComboComputer:
         self.combo_state = ComboState()
 
     def combo_compute(self, connect_code: str):
+        #assign port index to desired player via connect code
         for player in self.players:
             if player.code == connect_code:
                 player_port: int = player.port
             else:
                 opponent_port: int = player.port
         
-        #add handling for connect code not found
-        for frame in self.all_frames:
+        # TODO add handling for connect code not found
+        
+        for i, frame in enumerate(self.all_frames):
+            # directly access individual port frame data
             player_frame = frame.ports[player_port].leader.post
             opponent_frame = frame.ports[opponent_port].leader.post
-            
-            prev_player_frame = self.all_frames[frame.index - 1].ports[player_port].leader.post
-            prev_opponent_frame = self.all_frames[frame.index - 1].ports[opponent_port].leader.post
+            # grab previous frame for future comparisons
+            prev_player_frame = self.all_frames[i - 1].ports[player_port].leader.post
+            prev_opponent_frame = self.all_frames[i - 1].ports[opponent_port].leader.post
             
             opnt_action_state = opponent_frame.state
             opnt_is_damaged = is_damaged(opnt_action_state)
@@ -104,10 +107,10 @@ class ComboComputer:
 # the actionStateCounter at this point which counts the number of frames since
 # an animation started. Should be more robust, for old files it should always be
 # null and null < null = false
-            action_changed_since_hit = (not player_frame.state is self.combo_state.last_hit_animation)
-            action_counter = player_frame.state_age
+            action_changed_since_hit = not (player_frame.state == self.combo_state.last_hit_animation)
+            action_frame_counter = player_frame.state_age
             prev_action_counter = prev_player_frame.state_age
-            action_state_reset = action_counter < prev_action_counter
+            action_state_reset = action_frame_counter < prev_action_counter
             if(action_changed_since_hit or action_state_reset):
                 self.combo_state.last_hit_animation = None
             
@@ -115,13 +118,12 @@ class ComboComputer:
             if (opnt_is_damaged or
                 opnt_is_grabbed or
                 opnt_is_cmd_grabbed or
-                opnt_is_in_hitlag or
                 opnt_is_in_hitstun):
                 
                 combo_started = False
                 if self.combo_state.combo is None:
                     self.combo_state.combo = ComboData()
-                    self.combo_state.combo.player = player.code
+                    self.combo_state.combo.player = self.players[player_port].code
                     self.combo_state.combo.moves = []
                     self.combo_state.combo.did_kill = False
                     self.combo_state.combo.start_frame = frame.index
@@ -137,7 +139,7 @@ class ComboComputer:
                 if opnt_damage_taken:
                     if self.combo_state.last_hit_animation is None:
                         self.combo_state.move = MoveLanded()
-                        self.combo_state.move.player = player.code
+                        self.combo_state.move.player = self.players[player_port].code
                         self.combo_state.move.frame = frame.index
                         self.combo_state.move.move_id = player_frame.last_attack_landed
                         self.combo_state.move.hit_count = 0
@@ -190,7 +192,7 @@ class ComboComputer:
             
             if should_terminate:
                 self.combo_state.combo.end_frame = frame.index
-                self.combo_state.combo.end_percent = prev_opponent_frame.damage
+                self.combo_state.combo.end_percent = self.combo_state.combo.current_percent
                 self.combo_state.event = ComboEvent.COMBO_END
                 
                 self.combo_state.combo = None
@@ -231,7 +233,7 @@ def is_dying(action_state) -> bool:
 def is_downed(action_state) -> bool:
     return (action_state >= ActionState.DOWN_START and action_state <= ActionState.DOWN_END)
 
-def is_offstage(curr_frame: Frame, stage) -> bool:
+def is_offstage(curr_frame: Frame.Port.Data.Post, stage) -> bool:
     stage_bounds = [0, 0]
 
     match stage:
@@ -264,13 +266,13 @@ def is_shield_broken(action_state) -> bool:
 def is_dodging(action_state) -> bool:
     return (action_state >= ActionState.DODGE_START and action_state <= ActionState.DODGE_END)
 
-def did_lose_stock(curr_frame, prev_frame) -> bool:
+def did_lose_stock(curr_frame: Frame.Port.Data.Post, prev_frame: Frame.Port.Data.Post) -> bool:
     if not curr_frame or  not prev_frame:
         return False
 
     return (prev_frame.stocks - curr_frame.stocks) > 0
 
-def calc_damage_taken(curr_frame, prev_frame) -> float:
+def calc_damage_taken(curr_frame: Frame.Port.Data.Post, prev_frame: Frame.Port.Data.Post) -> float:
     percent = curr_frame.damage
     prev_percent = prev_frame.damage
 
