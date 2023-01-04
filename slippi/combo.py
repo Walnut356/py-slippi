@@ -1,8 +1,11 @@
+from typing import List, Dict, Optional
+
 from .util import *
 from .game import Game
 from .id import ActionState, Stage
 from .event import Start, Frame, StateFlags
-from typing import List, Optional
+from .metadata import Metadata
+
 
 COMBO_LENIENCY = 45
 
@@ -56,6 +59,7 @@ class ComboComputer(Base):
     players: List[PlayerIndex]
     all_frames: List[Frame]
     combo_state: Optional[ComboState]
+    metadata: Optional[Metadata]
 
     def __init__(self):
         self.rules = None
@@ -63,6 +67,7 @@ class ComboComputer(Base):
         self.players = []
         self.all_frames = []
         self.combo_state = None
+        self.metadata = None
     
     def prime_replay(self, replay_path):
         parsed_replay = Game(replay_path)
@@ -72,10 +77,13 @@ class ComboComputer(Base):
         self.combos = []
         self.all_frames = parsed_replay.frames
         self.combo_state = ComboState()
+        self.metadata = parsed_replay.metadata
 
     def combo_compute(self, connect_code: str):
     # Most people want combos from a specific player, so forcing a connect code requirement
     # will cover most usecases
+        player_port = None
+        opponent_port = None
         for player in self.players:
             if player.code == connect_code:
                 player_port: int = player.port
@@ -110,6 +118,7 @@ class ComboComputer(Base):
             opnt_is_shield_broken = is_shield_broken(opnt_action_state)
             opnt_damage_taken = calc_damage_taken(opponent_frame, prev_opponent_frame)
             opnt_did_lose_stock = did_lose_stock(opponent_frame, prev_opponent_frame)
+            opnt_is_ledge_action = is_ledge_action(opnt_action_state)
 
         # "Keep track of whether actionState changes after a hit. Used to compute move count
         # When purely using action state there was a bug where if you did two of the same
@@ -118,8 +127,7 @@ class ComboComputer(Base):
         # an animation started. Should be more robust, for old files it should always be
         # null and null < null = false" - official parser
             action_changed_since_hit = not (player_frame.state == self.combo_state.last_hit_animation)
-            action_counter = player_frame.state_age
-
+            action_frame_counter = player_frame.state_age
             prev_action_counter = prev_player_frame.state_age
             action_state_reset = action_frame_counter < prev_action_counter
             if(action_changed_since_hit or action_state_reset):
@@ -146,7 +154,7 @@ class ComboComputer(Base):
                     self.combo_state.combo.end_frame = None
                     self.combo_state.combo.start_percent = prev_opponent_frame.damage
                     self.combo_state.combo.current_percent = opponent_frame.damage
-                    self.combo_state.combo.end_percent = None
+                    self.combo_state.combo.end_percent = opponent_frame.damage
                     
                     self.combos.append(self.combo_state.combo)
                     
@@ -183,7 +191,7 @@ class ComboComputer(Base):
                 self.combo_state.combo.current_percent = opponent_frame.damage
 
         # reset the combo timeout timer to 0 if the opponent meets the following conditions
-        # list is expanded from official parser to allow for higher combo variety and capture more of what we would traditionally see as "combos". 
+        # list expanded from official parser to allow for higher combo variety and capture more of what we would count as "combos"
         # noteably, this list will allow mid-combo shield pressure and edgeguards to be counted as part of a combo
         # TODO add interface to disable/enable these checks? (argument && is_X check)
             if (opnt_is_damaged or # Action state range
@@ -196,7 +204,9 @@ class ComboComputer(Base):
                 opnt_is_dodging or # Action state range
                 opnt_is_dying or # Action state range
                 opnt_is_downed or # Action state check
-                opnt_is_teching): # Action state check
+                opnt_is_teching or
+                opnt_is_ledge_action or
+                opnt_is_shield_broken): # Action state check
                 
                 self.combo_state.reset_counter = 0
             else: 
@@ -304,7 +314,5 @@ def calc_damage_taken(curr_frame: Frame.Port.Data.Post, prev_frame: Frame.Port.D
 
     return percent - prev_percent
 
-# TODO 
-
-def is_ledge_option():
-    pass
+def is_ledge_action(action_state: int):
+    return ActionState.LEDGE_ACTION_START <= action_state <= ActionState.LEDGE_ACTION_END
