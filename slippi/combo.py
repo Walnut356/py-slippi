@@ -2,24 +2,28 @@ from .util import *
 from .game import Game
 from .id import ActionState, Stage
 from .event import Start, Frame, StateFlags
+from typing import List, Optional
 
 COMBO_LENIENCY = 45
 
 class ComboEvent(Enum):
+    """Enumeration for combo states, maybe unused?"""
     COMBO_START = "COMBO_START"
     COMBO_EXTEND = "COMBO_EXTEND"
     COMBO_END = "COMBO_END"
   
-class MoveLanded:
+class MoveLanded(Base):
+    """Contains all data for a single move connecting"""
     player: str = ""
     frame: int = 0
     move_id: int = 0
     hit_count: int = 0
     damage: float = 0.0
 
-class ComboData:
+class ComboData(Base):
+    "Contains a single complete combo, including movelist"
     player: str = ""
-    moves: list[MoveLanded] = []
+    moves: List[MoveLanded] = []
     did_kill: bool = False
     start_percent: float = 0.0
     current_percent: float = 0.0
@@ -27,14 +31,14 @@ class ComboData:
     start_frame: int = 0
     end_frame: int = 0
 
-class ComboState:
-    combo: ComboData = ComboData()
-    move: MoveLanded = MoveLanded()
+class ComboState(Base):
+    combo: Optional[ComboData] = ComboData()
+    move: Optional[MoveLanded] = MoveLanded()
     reset_counter: int = 0
     last_hit_animation = None
     event: ComboEvent = None
  
-class PlayerIndex:
+class PlayerIndex(Base):
     player: Start.Player
     code: str
     port: int
@@ -44,12 +48,14 @@ class PlayerIndex:
         self.code = code
         self.port = port
 
-class ComboComputer:
-    rules: Start
-    combos: list[ComboData]
-    players: list[PlayerIndex]
-    all_frames: list[Frame]
-    combo_state: ComboState
+class ComboComputer(Base):
+    """Base class for parsing combo events, call .prime_replay(path) to set up the instance,
+    and .combo_compute(connect_code) to populate the computer's .combos list. """
+    rules: Optional[Start]
+    combos: List[ComboData]
+    players: List[PlayerIndex]
+    all_frames: List[Frame]
+    combo_state: Optional[ComboState]
 
     def __init__(self):
         self.rules = None
@@ -68,26 +74,30 @@ class ComboComputer:
         self.combo_state = ComboState()
 
     def combo_compute(self, connect_code: str):
-        #assign port index to desired player via connect code
+    # Most people want combos from a specific player, so forcing a connect code requirement
+    # will cover most usecases
         for player in self.players:
             if player.code == connect_code:
                 player_port: int = player.port
             else:
                 opponent_port: int = player.port
-        
+                
         # TODO add handling for connect code not found
-        
+
         for i, frame in enumerate(self.all_frames):
-            # directly access individual port frame data
-            player_frame = frame.ports[player_port].leader.post
-            opponent_frame = frame.ports[opponent_port].leader.post
-            # grab previous frame for future comparisons
-            prev_player_frame = self.all_frames[i - 1].ports[player_port].leader.post
-            prev_opponent_frame = self.all_frames[i - 1].ports[opponent_port].leader.post
+        # player data is stored as list of frames -> individual frame -> port -> leader/follower -> pre/post frame data
+        # we make an interface as soon as possible because that's awful
+            player_frame: Frame.Port.Data.Post = frame.ports[player_port].leader.post
+            opponent_frame: Frame.Port.Data.Post = frame.ports[opponent_port].leader.post
+            
+        # Frames are -123 indexed, so we can't just pull the frame's .index to acquire the previous frame
+        # this is the sole reason for enumerating self.all_frames
+            prev_player_frame: Frame.Port.Data.Post = self.all_frames[i - 1].ports[player_port].leader.post
+            prev_opponent_frame: Frame.Port.Data.Post = self.all_frames[i - 1].ports[opponent_port].leader.post
             
             opnt_action_state = opponent_frame.state
             opnt_is_damaged = is_damaged(opnt_action_state)
-            opnt_is_in_hitstun = is_in_hitstun(opponent_frame.flags)
+            opnt_is_in_hitstun = is_in_hitstun(opponent_frame.flags) # Bitflags are used because the hitstun frame count is used for a bunch of other things as well
             opnt_is_in_hitlag = is_in_hitlag(opponent_frame.flags)
             opnt_is_grabbed = is_grabbed(opnt_action_state)
             opnt_is_cmd_grabbed = is_cmd_grabbed(opnt_action_state)
@@ -100,27 +110,33 @@ class ComboComputer:
             opnt_is_shield_broken = is_shield_broken(opnt_action_state)
             opnt_damage_taken = calc_damage_taken(opponent_frame, prev_opponent_frame)
             opnt_did_lose_stock = did_lose_stock(opponent_frame, prev_opponent_frame)
-            
-# Keep track of whether actionState changes after a hit. Used to compute move count
-# When purely using action state there was a bug where if you did two of the same
-# move really fast (such as ganon's jab), it would count as one move. Added
-# the actionStateCounter at this point which counts the number of frames since
-# an animation started. Should be more robust, for old files it should always be
-# null and null < null = false
+
+        # "Keep track of whether actionState changes after a hit. Used to compute move count
+        # When purely using action state there was a bug where if you did two of the same
+        # move really fast (such as ganon's jab), it would count as one move. Added
+        # the actionStateCounter at this point which counts the number of frames since
+        # an animation started. Should be more robust, for old files it should always be
+        # null and null < null = false" - official parser
             action_changed_since_hit = not (player_frame.state == self.combo_state.last_hit_animation)
-            action_frame_counter = player_frame.state_age
+            action_counter = player_frame.state_age
+
             prev_action_counter = prev_player_frame.state_age
             action_state_reset = action_frame_counter < prev_action_counter
             if(action_changed_since_hit or action_state_reset):
                 self.combo_state.last_hit_animation = None
             
             
+        # I throw in the extra hitstun check to make it extra robust in case the animations are weird for whatever reason
+        # Don't include hitlag check unless you want shield hits to start combo events.
+        # There might be false positives on self damage like fully charged 
             if (opnt_is_damaged or
                 opnt_is_grabbed or
                 opnt_is_cmd_grabbed or
                 opnt_is_in_hitstun):
                 
                 combo_started = False
+
+            # if the opponent has been hit and 
                 if self.combo_state.combo is None:
                     self.combo_state.combo = ComboData()
                     self.combo_state.combo.player = self.players[player_port].code
@@ -159,23 +175,28 @@ class ComboComputer:
                 if combo_started:
                     self.combo_state.event = ComboEvent.COMBO_START
         
-            if not self.combo_state.combo:
+        # if a combo hasn't started and no damage was taken this frame, just skip to the next frame
+            if self.combo_state.combo is None:
                 continue
             
             if not opnt_did_lose_stock:
                 self.combo_state.combo.current_percent = opponent_frame.damage
 
-            if (opnt_is_damaged or
-                opnt_is_grabbed or
-                opnt_is_cmd_grabbed or
-                opnt_is_in_hitlag or
-                opnt_is_in_hitstun or
-                opnt_is_shielding or
-                opnt_is_offstage or
-                opnt_is_dodging or
-                opnt_is_dying or
-                opnt_is_downed or
-                opnt_is_teching):
+        # reset the combo timeout timer to 0 if the opponent meets the following conditions
+        # list is expanded from official parser to allow for higher combo variety and capture more of what we would traditionally see as "combos". 
+        # noteably, this list will allow mid-combo shield pressure and edgeguards to be counted as part of a combo
+        # TODO add interface to disable/enable these checks? (argument && is_X check)
+            if (opnt_is_damaged or # Action state range
+                opnt_is_grabbed or # Action state range
+                opnt_is_cmd_grabbed or # Action state range
+                opnt_is_in_hitlag or # Bitflags (will always fail with old replays)
+                opnt_is_in_hitstun or # Bitflags (will always fail with old replays)
+                opnt_is_shielding or # Action state range
+                opnt_is_offstage or # X coordinate check
+                opnt_is_dodging or # Action state range
+                opnt_is_dying or # Action state range
+                opnt_is_downed or # Action state check
+                opnt_is_teching): # Action state check
                 
                 self.combo_state.reset_counter = 0
             else: 
@@ -183,6 +204,7 @@ class ComboComputer:
             
             should_terminate = False
             
+        # All combo end checks below
             if opnt_did_lose_stock:
                 self.combo_state.combo.did_kill = True
                 should_terminate = True
@@ -190,19 +212,22 @@ class ComboComputer:
             if self.combo_state.reset_counter > COMBO_LENIENCY:
                 should_terminate = True
             
+        # If the combo should end, finalize the values, reset the temp storage
             if should_terminate:
                 self.combo_state.combo.end_frame = frame.index
-                self.combo_state.combo.end_percent = self.combo_state.combo.current_percent
-                self.combo_state.event = ComboEvent.COMBO_END
+                self.combo_state.combo.end_percent = prev_opponent_frame.damage
+                self.combo_state.event = ComboEvent.COMBO_END # not entirely convinced these do anything, even in the official parser?
+
                 
                 self.combo_state.combo = None
                 self.combo_state.move = None
             
 
-
+# It's probably worth spliting these off into a seperate file similar to the official parser
+# if i end up adding more stats calculators, but for now i'd rather keep the file structure cleaner
 
 def is_damaged(action_state) -> bool:
-    return (action_state >= ActionState.DAMAGE_START and action_state <= ActionState.DAMAGE_END)
+    return (ActionState.DAMAGE_START <= action_state <= ActionState.DAMAGE_END)
 
 def is_in_hitstun(flags) -> bool:
     if StateFlags.HIT_STUN in flags:
@@ -217,21 +242,21 @@ def is_in_hitlag(flags) -> bool:
         return False
 
 def is_grabbed(action_state) -> bool:
-    return (action_state >= ActionState.CAPTURE_START and action_state <= ActionState.CAPTURE_END)
+    return (ActionState.CAPTURE_START <= action_state <= ActionState.CAPTURE_END)
 
 def is_cmd_grabbed(action_state) -> bool:
-    return (((action_state >= ActionState.COMMAND_GRAB_RANGE1_START and action_state <= ActionState.COMMAND_GRAB_RANGE1_END)
-        or (action_state >= ActionState.COMMAND_GRAB_RANGE2_START and action_state <= ActionState.COMMAND_GRAB_RANGE2_END))
-        and not action_state is ActionState.BARREL_WAIT)
+    return (((ActionState.COMMAND_GRAB_RANGE1_START <= action_state <= ActionState.COMMAND_GRAB_RANGE1_END)
+        or (ActionState.COMMAND_GRAB_RANGE2_START <= action_state <= ActionState.COMMAND_GRAB_RANGE2_END))
+        and not action_state == ActionState.BARREL_WAIT)
 
 def is_teching(action_state) -> bool:
-    return (action_state >= ActionState.TECH_START and action_state <= ActionState.TECH_END)
+    return (ActionState.TECH_START <= action_state <= ActionState.TECH_END)
 
 def is_dying(action_state) -> bool:
-    return (action_state >= ActionState.DYING_START and action_state <= ActionState.DYING_END)
+    return (ActionState.DYING_START <= action_state <= ActionState.DYING_END)
 
 def is_downed(action_state) -> bool:
-    return (action_state >= ActionState.DOWN_START and action_state <= ActionState.DOWN_END)
+    return (ActionState.DOWN_START <= action_state <= ActionState.DOWN_END)
 
 def is_offstage(curr_frame: Frame.Port.Data.Post, stage) -> bool:
     stage_bounds = [0, 0]
@@ -258,22 +283,28 @@ def is_offstage(curr_frame: Frame.Port.Data.Post, stage) -> bool:
         return False
 
 def is_shielding(action_state) -> bool:
-    return (action_state >= ActionState.GUARD_START and action_state <= ActionState.GUARD_END)
+    return (ActionState.GUARD_START <= action_state <= ActionState.GUARD_END)
 
 def is_shield_broken(action_state) -> bool:
-    return (action_state >= ActionState.GUARD_BREAK_START and action_state <= ActionState.GUARD_BREAK_END)
+    return (ActionState.GUARD_BREAK_START <= action_state <= ActionState.GUARD_BREAK_END)
 
 def is_dodging(action_state) -> bool:
-    return (action_state >= ActionState.DODGE_START and action_state <= ActionState.DODGE_END)
+    return (ActionState.DODGE_START <= action_state <= ActionState.DODGE_END)
+
 
 def did_lose_stock(curr_frame: Frame.Port.Data.Post, prev_frame: Frame.Port.Data.Post) -> bool:
     if not curr_frame or  not prev_frame:
         return False
 
-    return (prev_frame.stocks - curr_frame.stocks) > 0
+    return prev_frame.stocks - curr_frame.stocks > 0
 
 def calc_damage_taken(curr_frame: Frame.Port.Data.Post, prev_frame: Frame.Port.Data.Post) -> float:
     percent = curr_frame.damage
     prev_percent = prev_frame.damage
 
     return percent - prev_percent
+
+# TODO 
+
+def is_ledge_option():
+    pass
