@@ -35,6 +35,7 @@ class ComboData(Base):
     end_frame: int = 0
 
 class ComboState(Base):
+    """Contains info used during combo calculation to build the final combo"""
     combo: Optional[ComboData] = ComboData()
     move: Optional[MoveLanded] = MoveLanded()
     reset_counter: int = 0
@@ -42,6 +43,8 @@ class ComboState(Base):
     event: ComboEvent = None
  
 class PlayerIndex(Base):
+    """Contains in-game and Slippi player data ID data"""
+    # I want to go in and associate these in the metadata in the first place, but for now this is fine
     player: Start.Player
     code: str
     port: int
@@ -69,7 +72,9 @@ class ComboComputer(Base):
         self.combo_state = None
         self.metadata = None
     
-    def prime_replay(self, replay_path):
+    def prime_replay(self, replay_path) -> None:
+        """Parses a replay and loads the relevant data into the combo computer. Call combo_compute(connect_code) to extract combos
+        from parsed replay"""
         parsed_replay = Game(replay_path)
         self.rules = parsed_replay.start
         for i in range(0,2):
@@ -79,7 +84,9 @@ class ComboComputer(Base):
         self.combo_state = ComboState()
         self.metadata = parsed_replay.metadata
 
-    def combo_compute(self, connect_code: str):
+    def combo_compute(self, connect_code: str) -> None:
+        """Generates list of combos from the replay information parsed using prime_replay(), returns nothing. Output is accessible as a list 
+        through ComboComputer.combos"""
     # Most people want combos from a specific player, so forcing a connect code requirement
     # will cover most usecases
         player_port = None
@@ -152,9 +159,9 @@ class ComboComputer(Base):
                     self.combo_state.combo.did_kill = False
                     self.combo_state.combo.start_frame = frame.index
                     self.combo_state.combo.end_frame = None
-                    self.combo_state.combo.start_percent = prev_opponent_frame.damage
-                    self.combo_state.combo.current_percent = opponent_frame.damage
-                    self.combo_state.combo.end_percent = opponent_frame.damage
+                    self.combo_state.combo.start_percent = prev_opponent_frame.percent
+                    self.combo_state.combo.current_percent = opponent_frame.percent
+                    self.combo_state.combo.end_percent = opponent_frame.percent
                     
                     self.combos.append(self.combo_state.combo)
                     
@@ -188,7 +195,7 @@ class ComboComputer(Base):
                 continue
             
             if not opnt_did_lose_stock:
-                self.combo_state.combo.current_percent = opponent_frame.damage
+                self.combo_state.combo.current_percent = opponent_frame.percent
 
         # reset the combo timeout timer to 0 if the opponent meets the following conditions
         # list expanded from official parser to allow for higher combo variety and capture more of what we would count as "combos"
@@ -236,6 +243,8 @@ class ComboComputer(Base):
 # It's probably worth spliting these off into a seperate file similar to the official parser
 # if i end up adding more stats calculators, but for now i'd rather keep the file structure cleaner
 
+# Action state ranges are listed in id.py
+
 def is_damaged(action_state) -> bool:
     return (ActionState.DAMAGE_START <= action_state <= ActionState.DAMAGE_END)
 
@@ -255,6 +264,7 @@ def is_grabbed(action_state) -> bool:
     return (ActionState.CAPTURE_START <= action_state <= ActionState.CAPTURE_END)
 
 def is_cmd_grabbed(action_state) -> bool:
+    #Includes sing, bury, ice, cargo throw, mewtwo side B, koopa claw, kirby suck, and yoshi egg
     return (((ActionState.COMMAND_GRAB_RANGE1_START <= action_state <= ActionState.COMMAND_GRAB_RANGE1_END)
         or (ActionState.COMMAND_GRAB_RANGE2_START <= action_state <= ActionState.COMMAND_GRAB_RANGE2_END))
         and not action_state == ActionState.BARREL_WAIT)
@@ -271,6 +281,9 @@ def is_downed(action_state) -> bool:
 def is_offstage(curr_frame: Frame.Port.Data.Post, stage) -> bool:
     stage_bounds = [0, 0]
 
+    # I manually grabbed these values using uncle punch and just moving as close to the edge as I could and rounding away from 0.
+    # They don't cover 100% of cases (such as being underneath BF), but it's accurate enough for most standard edgeguard situations
+    # In the future I'll add a Y value check, but i'll handle that when i handle ading Y value for juggles.
     match stage:
         case Stage.FOUNTAIN_OF_DREAMS:
             stage_bounds = [-64, 64]
@@ -301,18 +314,18 @@ def is_shield_broken(action_state) -> bool:
 def is_dodging(action_state) -> bool:
     return (ActionState.DODGE_START <= action_state <= ActionState.DODGE_END)
 
-
 def did_lose_stock(curr_frame: Frame.Port.Data.Post, prev_frame: Frame.Port.Data.Post) -> bool:
     if not curr_frame or  not prev_frame:
         return False
-
-    return prev_frame.stocks - curr_frame.stocks > 0
+    return prev_frame.stocks_remaining - curr_frame.stocks_remaining > 0
 
 def calc_damage_taken(curr_frame: Frame.Port.Data.Post, prev_frame: Frame.Port.Data.Post) -> float:
-    percent = curr_frame.damage
-    prev_percent = prev_frame.damage
+    percent = curr_frame.percent
+    prev_percent = prev_frame.percent
 
     return percent - prev_percent
 
 def is_ledge_action(action_state: int):
     return ActionState.LEDGE_ACTION_START <= action_state <= ActionState.LEDGE_ACTION_END
+
+# TODO add walljump/walljumptech check
