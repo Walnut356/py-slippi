@@ -34,7 +34,7 @@ Filter these combos for desired criteria (helped functions included), for exampl
 for c in example.combos:
     if(
         c.did_kill and
-        (c.minimum_length(5) and c.minimum_damage(40)) or
+        (c.minimum_length(5) and c.minimum_damage(40) or
         (c.minimum_damage(60))
         ):
 ```
