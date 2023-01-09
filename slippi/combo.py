@@ -263,12 +263,12 @@ class ComboComputer(Base):
 # Action state ranges are listed in id.py
 
 def is_damaged(action_state: int) -> bool:
-    """Recieves action state, returns whether or not the player is in a damaged state. 
-    This includes all generic variants of tumble and knockback."""
+    """Recieves action state, returns whether or not the player is in a damaged state.
+    This includes all generic variants."""
     return (ActionState.DAMAGE_START <= action_state <= ActionState.DAMAGE_END)
 
 def is_in_hitstun(flags: StateFlags) -> bool:
-    """Recieves StateFlags, returns whether or not the hitstun bitflag is active. 
+    """Recieves StateFlags, returns whether or not the hitstun bitflag is active.
     Always returns false on older replays that do not support stateflags."""
     if StateFlags.HIT_STUN in flags:
         return True
@@ -276,7 +276,7 @@ def is_in_hitstun(flags: StateFlags) -> bool:
         return False
 
 def is_in_hitlag(flags: StateFlags) -> bool:
-    """Recieves StateFlags, returns whether or not the hitlag bitflag is active. 
+    """Recieves StateFlags, returns whether or not the hitlag bitflag is active.
     Always returns false on older replays that do not support stateflags."""
     if StateFlags.HIT_LAG in flags:
         return True

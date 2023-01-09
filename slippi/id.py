@@ -2,6 +2,7 @@
 
 from .util import *
 
+# Use reference: https://docs.google.com/spreadsheets/d/1JX2w-r2fuvWuNgGb6D3Cs4wHQKLFegZe2jhbBuIhCG8/edit#gid=13
 
 class ActionState(IntEnum):
 # ID Ranges - used to simplify checks for stat calculators
@@ -69,10 +70,10 @@ class ActionState(IntEnum):
     RUN_DIRECT = 22
     RUN_BRAKE = 23
     KNEE_BEND = 24 # Jumpsquat
-    JUMP_F = 25 # First jump, forward stick angle
-    JUMP_B = 26 # First jump, backwards stick angle
-    JUMP_AERIAL_F = 27 # Aerial jump forward stick angle
-    JUMP_AERIAL_B = 28 # Aerial jump backward stick angle
+    JUMP_F = 25 # First jump, forward
+    JUMP_B = 26 # First jump, backwards
+    JUMP_AERIAL_F = 27 # Aerial jump forward
+    JUMP_AERIAL_B = 28 # Aerial jump backward
     FALL = 29 # Default fall
     FALL_F = 30 # Fall forward DI
     FALL_B = 31 # Fall backward DI
@@ -138,7 +139,7 @@ class ActionState(IntEnum):
     DAMAGE_FLY_LW = 89
     DAMAGE_FLY_TOP = 90
     DAMAGE_FLY_ROLL = 91 # End of generic damage animations
-    
+
     LIGHT_GET = 92 # Picking up most items
     HEAVY_GET = 93 # Picking up heavy items (Barrel)
     LIGHT_THROW_F = 94 # Start of item throw
@@ -235,20 +236,20 @@ class ActionState(IntEnum):
 
     DOWN_BOUND_U = 183 # Missed tech bounce, facing upwards
     DOWN_WAIT_U = 184 # Downed, facing up
-    DOWN_DAMAGE_U = 185 # Hit while laying on the ground facing up
-    DOWN_STAND_U = 186 
-    DOWN_ATTACK_U = 187 # Getup attack, facing up 
-    DOWN_FOWARD_U = 188 
-    DOWN_BACK_U = 189
-    DOWN_SPOT_U = 190
+    DOWN_DAMAGE_U = 185 # Jab reset while laying facing up
+    DOWN_STAND_U = 186 # Neutral getup, facing up
+    DOWN_ATTACK_U = 187 # Getup attack, facing up
+    DOWN_FOWARD_U = 188 # Missed tech roll forward
+    DOWN_BACK_U = 189 # Missed tech roll backward
+    DOWN_SPOT_U = 190 # Does not appear to be used
     DOWN_BOUND_D = 191 # Missed tech bounce, facing down
     DOWN_WAIT_D = 192 # Downed, facing down
     DOWN_DAMAGE_D = 193 # Hit while laying on ground, facing down
     DOWN_STAND_D = 194 # Neutral getup, facing down
     DOWN_ATTACK_D = 195 # Getup attack, facing down
-    DOWN_FOWARD_D = 196
-    DOWN_BACK_D = 197
-    DOWN_SPOT_D = 198
+    DOWN_FOWARD_D = 196 # Missed tech roll forward
+    DOWN_BACK_D = 197 # Missed tech roll backward
+    DOWN_SPOT_D = 198 # Does not appear to be used
     PASSIVE = 199 # Neutral tech
     PASSIVE_STAND_F = 200 # Forward tech
     PASSIVE_STAND_B = 201 # Backward tech
@@ -258,7 +259,7 @@ class ActionState(IntEnum):
 
     SHIELD_BREAK_FLY = 205 # Initial bounce when shield is broken
     SHIELD_BREAK_FALL = 206 # Fall during shield break
-    SHIELD_BREAK_DOWN_U = 207 
+    SHIELD_BREAK_DOWN_U = 207
     SHIELD_BREAK_DOWN_D = 208
     SHIELD_BREAK_STAND_U = 209
     SHIELD_BREAK_STAND_D = 210
@@ -281,10 +282,10 @@ class ActionState(IntEnum):
     CAPTURE_PULLED_LW = 226 # Being grabbed and pulled
     CAPTURE_WAIT_LW = 227 # Grabbed and held
     CAPTURE_DAMAGE_LW = 228 # Pummeled
-    CAPTURE_CUT = 229 # Mashed out
-    CAPTURE_JUMP = 230
-    CAPTURE_NECK = 231
-    CAPTURE_FOOT = 232
+    CAPTURE_CUT = 229 # Grab release
+    CAPTURE_JUMP = 230 # Jumping mash out
+    CAPTURE_NECK = 231 # Does not appear to be used
+    CAPTURE_FOOT = 232 # Does not appear to be used
 
     ESCAPE_F = 233 # Shield roll forward
     ESCAPE_B = 234 # Shield roll backward
@@ -293,6 +294,7 @@ class ActionState(IntEnum):
 
     REBOUND_STOP = 237
     REBOUND = 238
+
     THROWN_F = 239 # Receiving Fthrow
     THROWN_B = 240 # Receiving Bthrow
     THROWN_HI = 241 # Receiving Uthrow
@@ -301,12 +303,12 @@ class ActionState(IntEnum):
 
     PASS = 244 # Drop through platform
     OTTOTTO = 245 # Ledge teeter
-    OTTOTTO_WAIT = 246 # Teeter loop
-    FLY_REFLECT_WALL = 247 
-    FLY_REFLECT_CEIL = 248
-    STOP_WALL = 249
-    STOP_CEIL = 250
-    MISS_FOOT = 251
+    OTTOTTO_WAIT = 246 # Teeter loop?
+    FLY_REFLECT_WALL = 247 # Missed walltech
+    FLY_REFLECT_CEIL = 248 # Missed ceiling tech
+    STOP_WALL = 249 # Wall bonk
+    STOP_CEIL = 250 # Ceiling bonk
+    MISS_FOOT = 251 # Backward shield slideoff
 
     # Ledge actions
     CLIFF_CATCH = 252 # Ledge grab
@@ -318,9 +320,9 @@ class ActionState(IntEnum):
     CLIFF_ESCAPE_SLOW = 258 # Ledge roll >100%
     CLIFF_ESCAPE_QUICK = 259 # Ledge roll <100%
     CLIFF_JUMP_SLOW_1 = 260 # Ledge jump >100%
-    CLIFF_JUMP_SLOW_2 = 261
+    CLIFF_JUMP_SLOW_2 = 261 # Ledge jump >100%
     CLIFF_JUMP_QUICK_1 = 262 # Ledge jump <100%
-    CLIFF_JUMP_QUICK_2 = 263
+    CLIFF_JUMP_QUICK_2 = 263 # Ledge jump <100%
 
     APPEAL_R = 264 # Taunt facing right
     APPEAL_L = 265 # Taunt facing left
@@ -331,14 +333,14 @@ class ActionState(IntEnum):
     SHOULDERED_WALK_MIDDLE = 268
     SHOULDERED_WALK_FAST = 269
     SHOULDERED_TURN = 270
-    
-    THROWN_F_F = 271 # TODO DK cargo throws?
+    THROWN_F_F = 271 # DK cargo throws
     THROWN_F_B = 272
     THROWN_F_HI = 273
     THROWN_F_LW = 274
+
     CAPTURE_CAPTAIN = 275 # Falcon up B grab
     CAPTURE_YOSHI = 276 # TODO Yoshi Z grab?
-    YOSHI_EGG = 277 # Yoshi egg grab?
+    YOSHI_EGG = 277 # Yoshi neutral b grab?
     CAPTURE_KOOPA = 278 # Koopa claw
     CAPTURE_DAMAGE_KOOPA = 279
     CAPTURE_WAIT_KOOPA = 280
@@ -355,17 +357,20 @@ class ActionState(IntEnum):
     THROWN_COPY_STAR = 291 # Kirby swallow?
     THROWN_KIRBY = 292
     BARREL_WAIT = 293 # I think this is used for the barrel on DK jungle 64?
-    BURY = 294
+
+    BURY = 294 # Stuck in ground by DK side b or similar
     BURY_WAIT = 295
     BURY_JUMP = 296
-    DAMAGE_SONG = 297 # sing
+
+    DAMAGE_SONG = 297 # Put to sleep by Jiggs sing or similar
     DAMAGE_SONG_WAIT = 298
     DAMAGE_SONG_RV = 299
-    DAMAGE_BIND = 300
-    CAPTURE_MEWTWO = 301 # mewtwo sideB
-    CAPTURE_MEWTWO_AIR = 302
-    THROWN_MEWTWO = 303
-    THROWN_MEWTWO_AIR = 304
+
+    DAMAGE_BIND = 300 # Hit by Mewtwo disable
+    CAPTURE_MEWTWO = 301 # Does not appear to be used
+    CAPTURE_MEWTWO_AIR = 302 # Does not appear to be used
+    THROWN_MEWTWO = 303 # Hit by Mewtwo confusion
+    THROWN_MEWTWO_AIR = 304 # Hit by Mewtwo's confusion in the air
 
     # Item specific actions
     WARP_STAR_JUMP = 305
@@ -400,12 +405,18 @@ class ActionState(IntEnum):
     KIRBY_YOSHI_EGG = 332
     CAPTURE_REDEAD = 333
     CAPTURE_LIKE_LIKE = 334
-    DOWN_REFLECT = 335
+
+    DOWN_REFLECT = 335 # A very rare action state where the character transitions from a DownBoundU or DownBoundD (missed tech) state
+                       # into a wall bounce. This state is not techable and neither is the probable next floor hit. 
+                       # Most commonly encountered on Pokémon Stadium
+
     CAPTURE_CRAZY_HAND = 336
     CAPTURE_DAMAGE_CRAZY_HAND = 337
     CAPTURE_WAIT_CRAZY_HAND = 338
     THROWN_CRAZY_HAND = 339
     BARREL_CANNON_WAIT = 340
+    
+    # No general action states past this point used, it's all character-specific action states
     WAIT_1 = 341
     WAIT_2 = 342
     WAIT_3 = 343
