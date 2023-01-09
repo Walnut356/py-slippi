@@ -25,10 +25,10 @@ def combo_from_file(file, connect_code: str):
     data: List[Dict] = []
     
     for c in replay.combos:
-        if(len(c.moves) >=5 and
+        if(
+            len(c.moves) >=5 and
             c.did_kill and
-            c.end_percent - c.start_percent > 40
-            ):
+            c.end_percent - c.start_percent > 40):
             data.append({})
             data[-1]["path"] = file
             data[-1]["gameStartAt"] = replay.metadata.date.strftime("%m/%d/%y %I:%M %p")
@@ -38,7 +38,7 @@ def combo_from_file(file, connect_code: str):
 
 def multi_find_combos(path, conn_code: str):
     with os.scandir(replay_dir) as thing:
-        with concurrent.futures.ProcessPoolExecutor() as executor:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
             futures = {executor.submit(combo_from_file, os.path.join(replay_dir, entry.name), code_input) for entry in thing}
             
             for future in concurrent.futures.as_completed(futures):
