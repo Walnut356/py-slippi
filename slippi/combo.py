@@ -157,7 +157,7 @@ class ComboComputer(Base):
                     self.combo_state.combo.start_percent = prev_opponent_frame.percent
                     self.combo_state.combo.current_percent = opponent_frame.percent
                     self.combo_state.combo.end_percent = opponent_frame.percent
-                    
+
 
                     self.combos.append(self.combo_state.combo)
 
@@ -257,40 +257,51 @@ class ComboComputer(Base):
 
 # Action state ranges are listed in id.py
 
-def is_damaged(action_state) -> bool:
+def is_damaged(action_state: int) -> bool:
+    """Recieves action state, returns whether or not the player is in a damaged state. 
+    This includes all generic variants of tumble and knockback."""
     return (ActionState.DAMAGE_START <= action_state <= ActionState.DAMAGE_END)
 
-def is_in_hitstun(flags) -> bool:
+def is_in_hitstun(flags: StateFlags) -> bool:
+    """Recieves StateFlags, returns whether or not the hitstun bitflag is active. 
+    Always returns false on older replays that do not support stateflags."""
     if StateFlags.HIT_STUN in flags:
         return True
     else:
         return False
 
-def is_in_hitlag(flags) -> bool:
+def is_in_hitlag(flags: StateFlags) -> bool:
+    """Recieves StateFlags, returns whether or not the hitlag bitflag is active. 
+    Always returns false on older replays that do not support stateflags."""
     if StateFlags.HIT_LAG in flags:
         return True
     else:
         return False
 
-def is_grabbed(action_state) -> bool:
+def is_grabbed(action_state: int) -> bool:
     return (ActionState.CAPTURE_START <= action_state <= ActionState.CAPTURE_END)
 
-def is_cmd_grabbed(action_state) -> bool:
+def is_cmd_grabbed(action_state: int) -> bool:
+    """Reieves action state, returns whether or not player is command grabbed (falcon up b, kirby succ, cargo throw, etc)"""
     #Includes sing, bury, ice, cargo throw, mewtwo side B, koopa claw, kirby suck, and yoshi egg
     return (((ActionState.COMMAND_GRAB_RANGE1_START <= action_state <= ActionState.COMMAND_GRAB_RANGE1_END)
         or (ActionState.COMMAND_GRAB_RANGE2_START <= action_state <= ActionState.COMMAND_GRAB_RANGE2_END))
         and not action_state == ActionState.BARREL_WAIT)
 
-def is_teching(action_state) -> bool:
+def is_teching(action_state: int) -> bool:
+    """Recieves action state, returns whether or not it falls into the tech action states, includes walljump/ceiling techs"""
     return (ActionState.TECH_START <= action_state <= ActionState.TECH_END)
 
-def is_dying(action_state) -> bool:
+def is_dying(action_state: int) -> bool:
+    """Reieves action state, returns whether or not player is in the dying animation from any blast zone"""
     return (ActionState.DYING_START <= action_state <= ActionState.DYING_END)
 
-def is_downed(action_state) -> bool:
+def is_downed(action_state: int) -> bool:
+    """Recieves action state, returns whether or not player is downed (i.e. missed tech)"""
     return (ActionState.DOWN_START <= action_state <= ActionState.DOWN_END)
 
 def is_offstage(curr_frame: Frame.Port.Data.Post, stage) -> bool:
+    """Recieves current frame and stage ID, returns whether or not the player is outside the X coordinates denoting the on-stage bounds"""
     stage_bounds = [0, 0]
 
     # I manually grabbed these values using uncle punch and just moving as close to the edge as I could and rounding away from 0.
@@ -312,27 +323,32 @@ def is_offstage(curr_frame: Frame.Port.Data.Post, stage) -> bool:
 
     return (curr_frame.position.x < stage_bounds[0] or curr_frame.position.x > stage_bounds[1])
 
-def is_shielding(action_state) -> bool:
+def is_shielding(action_state: int) -> bool:
+    """Recieves action state, returns whether or not it falls into the guard action states"""
     return (ActionState.GUARD_START <= action_state <= ActionState.GUARD_END)
 
-def is_shield_broken(action_state) -> bool:
+def is_shield_broken(action_state: int) -> bool:
+    """Recieves action state, returns whether or not it falls into the guard_break action states"""
     return (ActionState.GUARD_BREAK_START <= action_state <= ActionState.GUARD_BREAK_END)
 
-def is_dodging(action_state) -> bool:
+def is_dodging(action_state: int) -> bool:
+    """Recieves action state and returns whether or not it falls into the 'dodging' category.
+    Category includes shielded escape options (roll, spot dodge, airdodge)"""
     return (ActionState.DODGE_START <= action_state <= ActionState.DODGE_END)
 
 def did_lose_stock(curr_frame: Frame.Port.Data.Post, prev_frame: Frame.Port.Data.Post) -> bool:
+    """Recieves current and previous frame, returns stock difference between the two"""
     if not curr_frame or  not prev_frame:
         return False
     return prev_frame.stocks_remaining - curr_frame.stocks_remaining > 0
 
 def calc_damage_taken(curr_frame: Frame.Port.Data.Post, prev_frame: Frame.Port.Data.Post) -> float:
+    """Recieves current and previous frames, returns float of the difference in damage between the two"""
     percent = curr_frame.percent
     prev_percent = prev_frame.percent
 
     return percent - prev_percent
 
 def is_ledge_action(action_state: int):
+    """Recieves action state, returns whether or not player is currently hanging from the ledge, or doing any ledge action."""
     return ActionState.LEDGE_ACTION_START <= action_state <= ActionState.LEDGE_ACTION_END
-
-# TODO add walljump/walljumptech check
