@@ -28,16 +28,18 @@ example.combo_compute(connect_code)
 
 To generate the list of combos for a specific slippi connect code. At the moment, the connect code is NOT optional. Additional optional keyword arguments allow toggling of the various checks that extend a combo. All are boolean flags set to True by default (hitstun_check, hitlag_check, tech_check, downed_check, offstage_check, dodge_check, shield_check, shield_break_check, ledge_check)
 
-Filter these combos for desired criteria, for example, ever combo that killed that: have more than 5 hits and does more than 40%, or does more than 70%:
+Filter these combos for desired criteria (helper functions included), for example, ever combo that killed that: have more than 5 hits and does more than 40%, or does more than 70%:
 
 ```python
 for c in example.combos:
     if(
         c.did_kill and
-        (len(c.moves) >=5 and c.total_damage() > 40) or
-        (c.total_damage() > 70)
+        (c.minimum_length(5) and c.minimum_damage(40)) or
+        (c.minimum_damage(60))
         ):
 ```
+
+You can also reference the original parsed replay's metadata to filter for character, stage, date range, opponent name/character, ranked/unranked, etc.
 
 combo_example.py exports this filtered list to json format that is compatible with [Project Clippi](https://github.com/vinceau/project-clippi), and can be loaded in and played with no fuss.
 

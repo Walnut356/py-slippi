@@ -3,4 +3,3 @@ build/
 dist/
 *.egg-info/
 *.pyc
-py_clip_combos.json
