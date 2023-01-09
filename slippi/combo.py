@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 
 from .util import *
 from .game import Game
@@ -26,7 +26,11 @@ class MoveLanded(Base):
     damage: float = 0.0
 
 class ComboData(Base):
-    """Contains a single complete combo, including movelist"""
+    """Contains a single complete combo, including movelist
+    Helper functions for filtering combos include:
+    minimum_damage(num)
+    minimum_length(num)
+    total_damage()"""
     player: str = ""
     moves: List[MoveLanded] = []
     did_kill: bool = False
@@ -36,9 +40,19 @@ class ComboData(Base):
     start_frame: int = 0
     end_frame: int = 0
 
+    # I could probably add a "combo_filters()" abstraction with keyword arguments, but that feels like it shoehorns a bit too much by limiting
+    # possible filter options, akin to clippi. Until i have a more robust list of filters, i won't make that further abstraction
     def total_damage(self) -> float:
         """Calculates total damage of the combo"""
         return self.end_percent - self.start_percent
+
+    def minimum_length(self, num: int | float) -> bool:
+        """Recieves number, returns True if combo's move count is greater than number"""
+        return len(self.moves) >= num
+    
+    def minimum_damage(self, num: int | float) -> bool:
+        """Recieves number, returns True if combo's total damage was over number"""
+        return self.total_damage() >= num
 
 
 class ComboState(Base):
