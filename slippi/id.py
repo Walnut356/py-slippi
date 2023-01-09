@@ -203,15 +203,16 @@ class ActionState(IntEnum):
     DOWN_FOWARD_D = 196
     DOWN_BACK_D = 197
     DOWN_SPOT_D = 198
-    PASSIVE = 199
-    PASSIVE_STAND_F = 200
-    PASSIVE_STAND_B = 201
-    PASSIVE_WALL = 202
-    PASSIVE_WALL_JUMP = 203
-    PASSIVE_CEIL = 204
-    SHIELD_BREAK_FLY = 205
-    SHIELD_BREAK_FALL = 206
-    SHIELD_BREAK_DOWN_U = 207
+    PASSIVE = 199 # Neutral tech
+    PASSIVE_STAND_F = 200 # Forward tech
+    PASSIVE_STAND_B = 201 # Backward tech
+    PASSIVE_WALL = 202 # Wall tech
+    PASSIVE_WALL_JUMP = 203 # Walljump and Walljump tech
+    PASSIVE_CEIL = 204 # Ceiling tech
+
+    SHIELD_BREAK_FLY = 205 # Initial bounce when shield is broken
+    SHIELD_BREAK_FALL = 206 # Fall during shield break
+    SHIELD_BREAK_DOWN_U = 207 
     SHIELD_BREAK_DOWN_D = 208
     SHIELD_BREAK_STAND_U = 209
     SHIELD_BREAK_STAND_D = 210
