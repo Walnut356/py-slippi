@@ -165,6 +165,8 @@ class Start(Base):
 
 
     class Player(Base):
+        """Contains metadata about the player from the console's perspective including:
+        character, starting stock count, costume, team, in-game tag, and UCF toggles"""
         character: sid.CSSCharacter #: Character selected
         type: Start.Player.Type #: Player type (human/cpu)
         stocks: int #: Starting stock count
@@ -195,17 +197,20 @@ class Start(Base):
 
 
         class Type(IntEnum):
+            """Human vs CPU"""
             HUMAN = 0
             CPU = 1
 
 
         class Team(IntEnum):
+            """Doubles team colors"""
             RED = 0
             BLUE = 1
             GREEN = 2
 
 
         class UCF(Base):
+            """UCF Dashback and shield drop, off, on, or arduino"""
             dash_back: Start.Player.UCF.DashBack #: UCF dashback status
             shield_drop: Start.Player.UCF.ShieldDrop #: UCF shield drop status
 
@@ -267,7 +272,7 @@ class End(Base):
 
 
 class Frame(Base):
-    """A single frame of the game. Includes data for all characters."""
+    """A single frame of the game. Includes data for all active bodies (characters, items, etc.)"""
 
     __slots__ = 'index', 'ports', 'items', 'start', 'end'
 
@@ -396,20 +401,22 @@ class Frame(Base):
                 character: sid.InGameCharacter #: In-game character (can only change for Zelda/Sheik). Check on first frame to determine if Zelda started as Sheik
                 state: Union[sid.ActionState, int] #: Character's action state
                 position: Position #: Character's position
-                direction: Direction #: Direction the character is facing
-                damage: float #: Current damage percent
-                shield: float #: Current size of shield
-                stocks: int #: Number of stocks remaining
+                facing_direction: Direction #: Direction the character is facing
+                percent: float #: Current damage percent
+                shield_size: float #: Current size of shield
+                stocks_remaining: int #: Number of stocks remaining
                 last_attack_landed: Union[Attack, int] #: Last attack that this character landed
                 last_hit_by: Optional[int] #: Port of character that last hit this character
                 combo_count: int #: Combo count as defined by the game
                 state_age: Optional[float] #: `added(0.2.0)` Number of frames action state has been active. Can have a fractional component for certain actions
                 flags: Optional[StateFlags] #: `added(2.0.0)` State flags
-                hit_stun: Optional[float] #: `added(2.0.0)` Number of hitstun frames remaining
-                airborne: Optional[bool] #: `added(2.0.0)` True if character is airborne
-                ground: Optional[int] #: `added(2.0.0)` ID of ground character is standing on, if any
-                jumps: Optional[int] #: `added(2.0.0)` Jumps remaining
+                maybe_hitstun_remaining: Optional[float] # hitstun remaining, but this value is also used for a bunch of other stuff so it's not a great indicator of if you're in hitstun or not
+                is_airborne: Optional[bool] #: `added(2.0.0)` True if character is airborne
+                last_ground_id: Optional[int] #: `added(2.0.0)` ID of ground character is standing on, if any
+                jumps_remaining: Optional[int] #: `added(2.0.0)` Jumps remaining
                 l_cancel: Optional[LCancel] #: `added(2.0.0)` L-cancel status, if any
+                # TODO velocity data - melee tracks 5 different numbers. See: slippi-js/types.ts: PostFrameUpdateType and SelfInducedSpeedsType
+                # TODO stale move queue?
 
                 def __init__(self, character: sid.InGameCharacter, state: Union[sid.ActionState, int],
                              position: Position, direction: Direction, damage: float, shield: float, stocks: int,
@@ -421,19 +428,19 @@ class Frame(Base):
                     self.character = character
                     self.state = state
                     self.position = position
-                    self.direction = direction
-                    self.damage = damage
-                    self.shield = shield
-                    self.stocks = stocks
+                    self.facing_direction = direction
+                    self.percent = damage
+                    self.shield_size = shield
+                    self.stocks_remaining = stocks
                     self.last_attack_landed = last_attack_landed
                     self.last_hit_by = last_hit_by
                     self.combo_count = combo_count
                     self.state_age = state_age
                     self.flags = flags
-                    self.hit_stun = hit_stun
-                    self.airborne = airborne
-                    self.ground = ground
-                    self.jumps = jumps
+                    self.maybe_hitstun_remaining = hit_stun
+                    self.is_airborne = airborne
+                    self.last_ground_id = ground
+                    self.jumps_remaining = jumps
                     self.l_cancel = l_cancel
 
                 @classmethod

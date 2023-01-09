@@ -57,6 +57,7 @@ class Metadata(Base):
 
 
     class Player(Base):
+        """Contains metadata from the perspective of slippi, including character usage, netplay info, connect code, and display name"""
         characters: Dict[sid.InGameCharacter, int] #: Character(s) used, with usage duration in frames (for Zelda/Sheik)
         netplay: Optional[Metadata.Player.Netplay] #: Netplay info (Dolphin-only)
         connect_code: Optional[str]
@@ -87,6 +88,7 @@ class Metadata(Base):
 
 
         class Netplay(Base):
+            """Contains netplay name and netpaly display name"""
             code: str #: Netplay code (e.g. "ABCD#123")
             name: str #: Netplay nickname
 
