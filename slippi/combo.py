@@ -36,6 +36,11 @@ class ComboData(Base):
     start_frame: int = 0
     end_frame: int = 0
 
+    def total_damage(self) -> float:
+        """Calculates total damage of the combo"""
+        return self.end_percent - self.start_percent
+
+
 class ComboState(Base):
     """Contains info used during combo calculation to build the final combo"""
     combo: Optional[ComboData] = ComboData()
@@ -97,7 +102,7 @@ class ComboComputer(Base):
         player_port = None
         opponent_port = None
         for player in self.players:
-            if player.code == connect_code:
+            if player.code == connect_code.upper():
                 player_port: int = player.port
             else:
                 opponent_port: int = player.port

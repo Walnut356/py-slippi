@@ -18,9 +18,10 @@ PRE_COMBO_BUFFER = -60
 POST_COMBO_BUFFER = 90
 
 def combo_from_file(file, connect_code: str):
+    """Accept file path and connect code, process combos, and return"""
     replay:ComboComputer = ComboComputer()
     replay.prime_replay(file)
-    replay.combo_compute(connect_code.upper())
+    replay.combo_compute(connect_code)
     
     data: List[Dict] = []
     
@@ -36,10 +37,10 @@ def combo_from_file(file, connect_code: str):
             data[-1]["endFrame"] = c.end_frame + POST_COMBO_BUFFER
     return data
 
-def multi_find_combos(path, conn_code: str):
-    with os.scandir(replay_dir) as thing:
+def multi_find_combos(dir_path, connect_code: str):
+    with os.scandir(dir_path) as thing:
         with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-            futures = {executor.submit(combo_from_file, os.path.join(replay_dir, entry.name), code_input) for entry in thing}
+            futures = {executor.submit(combo_from_file, os.path.join(dir_path, entry.name), connect_code) for entry in thing}
             
             for future in concurrent.futures.as_completed(futures):
                 for result in future.result():
