@@ -1,4 +1,3 @@
-=========
 py-slippi (Combos Fork)
 =========
 
