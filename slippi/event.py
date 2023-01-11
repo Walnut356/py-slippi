@@ -354,33 +354,33 @@ class Frame(Base):
                 """Pre-frame update data, required to reconstruct a replay. Information is collected right before 
                 controller inputs are used to figure out the character's next action."""
 
-                __slots__ = 'state', 'position', 'direction', 'joystick', 'cstick', 'triggers', 'buttons',\
-                'random_seed', 'raw_analog_x', 'damage'
+                __slots__ = 'state', 'position', 'facing_direction', 'joystick', 'cstick', 'triggers', 'buttons',\
+                'random_seed', 'raw_analog_x', 'percent'
 
                 state: Union[sid.ActionState, int]
                 position: Position
-                direction: Direction
+                facing_direction: Direction
                 joystick: Position
                 cstick: Position
                 triggers: Triggers
                 buttons: Buttons
                 random_seed: int
                 raw_analog_x: Optional[int]
-                damage: Optional[float]
+                percent: Optional[float]
 
                 def __init__(self, state: Union[sid.ActionState, int], position: Position, direction: Direction,
                              joystick: Position, cstick: Position, triggers: Triggers, buttons: Buttons,
                              random_seed: int, raw_analog_x: Optional[int] = None, damage: Optional[float] = None):
                     self.state = state #: :py:class:`slippi.id.ActionState` | int: Character's action state
                     self.position = position #: :py:class:`Position`: Character's position
-                    self.direction = direction #: :py:class:`Direction`: Direction the character is facing
+                    self.facing_direction = direction #: :py:class:`Direction`: Direction the character is facing
                     self.joystick = joystick #: :py:class:`Position`: Processed analog joystick position
                     self.cstick = cstick #: :py:class:`Position`: Processed analog c-stick position
                     self.triggers = triggers #: :py:class:`Triggers`: Trigger state
                     self.buttons = buttons #: :py:class:`Buttons`: Button state
                     self.random_seed = random_seed #: int: Random seed at this point
                     self.raw_analog_x = raw_analog_x #: int | None: `added(1.2.0)` Raw x analog controller input (for UCF)
-                    self.damage = damage #: float | None: `added(1.4.0)` Current damage percent
+                    self.percent = damage #: float | None: `added(1.4.0)` Current damage percent
 
                 @classmethod
                 def _parse(cls, stream):
@@ -413,9 +413,9 @@ class Frame(Base):
                 """Post-frame update data, for making decisions about game states (such as computing stats).
                 Information is collected at the end of collision detection, which is the last consideration of the game engine."""
 
-                __slots__ = 'character', 'state', 'position', 'direction', 'damage', 'shield', 'stocks',\
-                'last_attack_landed', 'last_hit_by', 'combo_count', 'state_age', 'flags', 'hit_stun',\
-                'airborne', 'ground', 'jumps', 'l_cancel'
+                __slots__ = 'character', 'state', 'position', 'facing_direction', 'percent', 'shield_size', 'stocks_remaining',\
+                'last_attack_landed', 'last_hit_by', 'combo_count', 'state_age', 'flags', 'is_in_hitstun',\
+                'is_airborne', 'last_ground_id', 'jumps_remaining', 'l_cancel'
 
                 character: sid.InGameCharacter #: In-game character (can only change for Zelda/Sheik). Check on first frame to determine if Zelda started as Sheik
                 state: Union[sid.ActionState, int] #: Character's action state
@@ -429,7 +429,7 @@ class Frame(Base):
                 combo_count: int #: Combo count as defined by the game
                 state_age: Optional[float] #: `added(0.2.0)` Number of frames action state has been active. Can have a fractional component for certain actions
                 flags: Optional[StateFlags] #: `added(2.0.0)` State flags
-                maybe_hitstun_remaining: Optional[float] # hitstun remaining, but this value is also used for a bunch of other stuff so it's not a great indicator of if you're in hitstun or not
+                is_in_hitstun: Optional[float] # hitstun boolean
                 is_airborne: Optional[bool] #: `added(2.0.0)` True if character is airborne
                 last_ground_id: Optional[int] #: `added(2.0.0)` ID of ground character is standing on, if any
                 jumps_remaining: Optional[int] #: `added(2.0.0)` Jumps remaining
@@ -456,7 +456,7 @@ class Frame(Base):
                     self.combo_count = combo_count
                     self.state_age = state_age
                     self.flags = flags
-                    self.maybe_hitstun_remaining = hit_stun
+                    self.is_in_hitstun = hit_stun
                     self.is_airborne = airborne
                     self.last_ground_id = ground
                     self.jumps_remaining = jumps
