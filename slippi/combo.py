@@ -99,6 +99,7 @@ class ComboComputer(Base):
         self.all_frames = []
         self.combo_state = None
         self.metadata = None
+        self.queue = []
 
     # I could probably do this in the init statement, but the official parser does this as well.
     # Presumably to allow combo computers to be reused
@@ -115,17 +116,12 @@ class ComboComputer(Base):
         self.metadata = parsed_replay.metadata
         self.replay_path = replay_path
     
-    def json_export(self):
-        for c in self.combos:
-            if(
-                c.minimum_length(5) and
-                c.did_kill and
-                c.minimum_damage(40)):
-                self.queue["queue"].append({})
-                self.queue["queue"][-1]["path"] = self.replay_path
-                self.queue["queue"][-1]["gameStartAt"] = self.metadata.date.strftime("%m/%d/%y %I:%M %p")
-                self.queue["queue"][-1]["startFrame"] = c.start_frame + PRE_COMBO_BUFFER_FRAMES
-                self.queue["queue"][-1]["endFrame"] = c.end_frame + POST_COMBO_BUFFER_FRAMES
+    def json_export(self, c: ComboData):
+        self.queue.append({})
+        self.queue[-1]["path"] = self.replay_path
+        self.queue[-1]["gameStartAt"] = self.metadata.date.strftime("%m/%d/%y %I:%M %p")
+        self.queue[-1]["startFrame"] = c.start_frame + PRE_COMBO_BUFFER_FRAMES
+        self.queue[-1]["endFrame"] = c.end_frame + POST_COMBO_BUFFER_FRAMES
         return self.queue
 
     def combo_compute(self, connect_code: str, hitstun_check=True, hitlag_check=True, tech_check=True, downed_check=True, 
@@ -285,7 +281,7 @@ class ComboComputer(Base):
         # If the combo should end, finalize the values, reset the temp storage
             if should_terminate:
                 self.combo_state.combo.end_frame = frame.index
-                self.combo_state.combo.end_percent = prev_opponent_frame.damage
+                self.combo_state.combo.end_percent = prev_opponent_frame.percent
                 self.combo_state.event = ComboEvent.COMBO_END
 
                 self.combo_state.combo = None

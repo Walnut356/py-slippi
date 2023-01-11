@@ -12,7 +12,13 @@ def combo_from_file(file, connect_code: str) -> ComboComputer:
     replay:ComboComputer = ComboComputer()
     replay.prime_replay(file)
     replay.combo_compute(connect_code)
-    replay.json_export()
+    for c in replay.combos:
+        if(
+            c.minimum_length(5) and
+            c.did_kill and
+            c.minimum_damage(40)):
+            
+            replay.json_export(c)
     
     return replay.queue
 
