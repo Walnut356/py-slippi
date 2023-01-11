@@ -1,4 +1,5 @@
 from typing import List, Dict, Optional, Union
+from pathlib import Path
 
 from .util import *
 from .game import Game
@@ -8,6 +9,8 @@ from .metadata import Metadata
 
 
 COMBO_LENIENCY = 45
+PRE_COMBO_BUFFER_FRAMES = -60
+POST_COMBO_BUFFER_FRAMES = 90
 
 class ComboEvent(Enum):
     """Enumeration for combo states"""
@@ -39,6 +42,8 @@ class ComboData(Base):
     end_percent: float = 0.0
     start_frame: int = 0
     end_frame: int = 0
+    
+
 
     # I could probably add a "combo_filters()" abstraction with keyword arguments, but that feels like it shoehorns a bit too much by limiting
     # possible filter options, akin to clippi. Until i have a more robust list of filters, i won't make that further abstraction
@@ -84,6 +89,8 @@ class ComboComputer(Base):
     all_frames: List[Frame]
     combo_state: Optional[ComboState]
     metadata: Optional[Metadata]
+    queue: List[Dict]
+    replay_path: Path
 
     def __init__(self):
         self.rules = None
@@ -106,6 +113,20 @@ class ComboComputer(Base):
         self.all_frames = parsed_replay.frames
         self.combo_state = ComboState()
         self.metadata = parsed_replay.metadata
+        self.replay_path = replay_path
+    
+    def json_export(self):
+        for c in self.combos:
+            if(
+                c.minimum_length(5) and
+                c.did_kill and
+                c.minimum_damage(40)):
+                self.queue["queue"].append({})
+                self.queue["queue"][-1]["path"] = self.replay_path
+                self.queue["queue"][-1]["gameStartAt"] = self.metadata.date.strftime("%m/%d/%y %I:%M %p")
+                self.queue["queue"][-1]["startFrame"] = c.start_frame + PRE_COMBO_BUFFER_FRAMES
+                self.queue["queue"][-1]["endFrame"] = c.end_frame + POST_COMBO_BUFFER_FRAMES
+        return self.queue
 
     def combo_compute(self, connect_code: str, hitstun_check=True, hitlag_check=True, tech_check=True, downed_check=True, 
                       offstage_check=True, dodge_check=True, shield_check=True, shield_break_check=True, ledge_check=True) -> None:
@@ -371,3 +392,14 @@ def calc_damage_taken(curr_frame: Frame.Port.Data.Post, prev_frame: Frame.Port.D
 def is_ledge_action(action_state: int):
     """Recieves action state, returns whether or not player is currently hanging from the ledge, or doing any ledge action."""
     return ActionState.LEDGE_ACTION_START <= action_state <= ActionState.LEDGE_ACTION_END
+
+def generate_clippi_header():
+    header: Dict = {
+        "mode": "queue",
+        "replay": "",
+        "isRealTimeMode": False,
+        "outputOverlayFiles": True,
+        "queue": [
+        ]
+        }
+    return header
