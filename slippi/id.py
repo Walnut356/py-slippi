@@ -87,8 +87,8 @@ class ActionState(IntEnum):
     SQUAT = 39 # Stand -> Crouch
     SQUAT_WAIT = 40 # Full crouch
     SQUAT_RV = 41 # Crouch -> Stand
-    LANDING = 42 # Universal no-action landing lag, fully interruptable
-    LANDING_FALL_SPECIAL = 43 # Landing from FALL_SPECIAL[_F/B]
+    LAND = 42 # Universal no-action landing lag, fully interruptable
+    LAND_FALL_SPECIAL = 43 # Landing from FALL_SPECIAL[_F/B]
 
     ATTACK_11 = 44 # Jab 1
     ATTACK_12 = 45 # Jab 2

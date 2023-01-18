@@ -134,9 +134,9 @@ class ComboComputer(Base):
         opponent_port = None
         for player in self.players:
             if player.code == connect_code.upper():
-                player_port: int = player.port
+                player_port = player.port
             else:
-                opponent_port: int = player.port
+                opponent_port = player.port
 
         # TODO add handling for connect code not found
 
@@ -233,7 +233,7 @@ class ComboComputer(Base):
             opnt_is_downed = is_downed(opnt_action_state) and downed_check
             opnt_is_dying = is_dying(opnt_action_state)
             opnt_is_offstage = is_offstage(opponent_frame, self.rules.stage) and offstage_check
-            opnt_is_dodging = is_dodging(opnt_action_state) and dodge_check
+            opnt_is_dodging = is_dodging(opnt_action_state) and dodge_check and not is_wavedashing(opnt_action_state, opponent_port, i, self.all_frames)
             opnt_is_shielding = is_shielding(opnt_action_state) and shield_check
             opnt_is_shield_broken = is_shield_broken(opnt_action_state) and shield_break_check
             opnt_did_lose_stock = did_lose_stock(opponent_frame, prev_opponent_frame)
@@ -388,6 +388,20 @@ def calc_damage_taken(curr_frame: Frame.Port.Data.Post, prev_frame: Frame.Port.D
 def is_ledge_action(action_state: int):
     """Recieves action state, returns whether or not player is currently hanging from the ledge, or doing any ledge action."""
     return ActionState.LEDGE_ACTION_START <= action_state <= ActionState.LEDGE_ACTION_END
+
+def is_wavedashing(action_state: int, port:int,  frame_index: int, all_frames: List[Frame]) -> bool:
+    if action_state != ActionState.ESCAPE_AIR:
+        return False
+    for i in range(1, 4):
+        if (port_frame_by_index(port, frame_index + i, all_frames).post.state == ActionState.LAND_FALL_SPECIAL or
+            port_frame_by_index(port, frame_index - i, all_frames).post.state == ActionState.KNEE_BEND):
+            return True
+    return False
+            
+
+def port_frame_by_index(port: int, index: int, all_frames: List[Frame]):
+    return all_frames[index].ports[port].leader
+    
 
 def generate_clippi_header():
     header: Dict = {
