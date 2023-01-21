@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Sequence, Tuple, Union
+from typing import Optional, Sequence, Tuple, Union, List
 
 from . import id as sid
 from .util import *
@@ -264,10 +264,12 @@ class End(Base):
 
     method: End.Method #: `changed(2.0.0)` How the game ended
     lras_initiator: Optional[int] #: `added(2.0.0)` Index of player that LRAS'd, if any
+    player_placements: Optional[List[int]] #: `added (3.13.0)` 0-indexed placement positions. -1 if player not in game
 
-    def __init__(self, method: End.Method, lras_initiator: Optional[int] = None):
+    def __init__(self, method: End.Method, lras_initiator: Optional[int] = None, player_placements: Optional[List[int]] = None):
         self.method = method
         self.lras_initiator = lras_initiator
+        self.player_placements = player_placements
 
     @classmethod
     def _parse(cls, stream):
@@ -277,7 +279,13 @@ class End(Base):
             lras_initiator = lras if lras < len(PORTS) else None
         except EOFError:
             lras_initiator = None
-        return cls(cls.Method(method), lras_initiator)
+
+        try: # v3.13.0
+            (p1_placement, p2_placement, p3_placement, p4_placement) = unpack('bbbb', stream)
+            player_placements = [p1_placement, p2_placement, p3_placement, p4_placement]
+        except EOFError:
+            player_placements = None
+        return cls(cls.Method(method), lras_initiator, player_placements)
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -521,9 +529,16 @@ class Frame(Base):
         damage: int #: Amount of damage item has taken
         timer: int #: Frames remaining until item expires
         spawn_id: int #: Unique ID per item spawned (0, 1, 2, ...)
+        missile_type: int
+        turnip_type: sid.TurnipFace
+        is_shot_launched: bool
+        charge_power: int
+        owner: int
+
 
         def __init__(self, type: sid.Item, state: int, direction: Direction, velocity: Velocity, position: Position,
-                     damage: int, timer: int, spawn_id: int):
+                     damage: int, timer: int, spawn_id: int, missile_type: int, turnip_type: sid.TurnipFace, is_shot_launched: bool, charge_power: int,
+                     owner: int):
             self.type = type
             self.state = state
             self.direction = direction
@@ -532,10 +547,25 @@ class Frame(Base):
             self.damage = damage
             self.timer = timer
             self.spawn_id = spawn_id
+            self.missile_type = missile_type
+            self.turnip_type = turnip_type
+            self.is_shot_launched = is_shot_launched
+            self.charge_power = charge_power
+            self.owner = owner
 
         @classmethod
         def _parse(cls, stream):
             (type, state, direction, x_vel, y_vel, x_pos, y_pos, damage, timer, spawn_id) = unpack('HB5fHfI', stream)
+
+            try:
+                (missile_type, turnip_type, is_shot_launched, charge_power, owner) = unpack('4Bb', stream)
+            except EOFError:
+                missile_type = None
+                turnip_type = None
+                is_shot_launched = None
+                charge_power = None
+                owner = None
+
             return cls(
                 type=try_enum(sid.Item, type),
                 state=state,
@@ -544,7 +574,12 @@ class Frame(Base):
                 position=Position(x_pos, y_pos),
                 damage=damage,
                 timer=timer,
-                spawn_id=spawn_id)
+                spawn_id=spawn_id,
+                missile_type=missile_type,
+                turnip_type=try_enum(sid.TurnipFace, turnip_type),
+                is_shot_launched=is_shot_launched,
+                charge_power=charge_power,
+                owner=owner)
 
         def __eq__(self, other):
             if not isinstance(other, self.__class__):

@@ -5,7 +5,7 @@ from math import atan2, degrees
 from .util import Base as Base
 from .game import Game
 from .id import ActionState, Stage
-from .event import Start, Frame, StateFlags, Position, Buttons
+from .event import Start, Frame, StateFlags, Position, Buttons, Direction
 from .metadata import Metadata
 from .combo import PlayerIndex
 from .common import *
@@ -29,8 +29,34 @@ class WavedashData(Base):
         self.airdodge_frames = airdodge_frames
         self.waveland = True
 
-    def total_startup(self):
+    def total_startup(self) -> int:
         return self.r_frame + self.airdodge_frames
+    
+class DashData(Base):
+    start_pos: float
+    end_pos: float
+    is_dashdance: bool
+
+    def __init__(self, start_pos=0, end_pos = 0):
+        self.start_pos = start_pos
+        self.end_pos = end_pos
+        self.is_dashdance = False
+
+    def distance(self) -> float:
+        return abs(self.end_pos - self.start_pos)
+
+class TechData(Base):
+    tech_type: common.TechType
+    tech_direction: Direction
+    is_missed_tech: bool
+    towards_center: bool
+    towards_opponent: bool
+    jab_reset: bool
+
+    def __init__(self):
+        pass
+    
+
 
 class StatsComputer(Base):
     rules: Optional[Start]
@@ -38,6 +64,7 @@ class StatsComputer(Base):
     all_frames: List[Frame]
     metadata: Optional[Metadata]
     wavedashes: List[WavedashData]
+    dashes: List[DashData]
     
     def __init__(self):
         self.rules = None
@@ -83,5 +110,34 @@ class StatsComputer(Base):
                                 self.wavedashes[-1].waveland = False
                                 break
                         break
-                    
+    
+    def dashdance_compute(self, connect_code: str):
+        player_port = None
+        for player in self.players:
+            if player.code == connect_code.upper():
+                player_port = player.port
+                break
+        
+        is_dashing = False
 
+        for i, frame in enumerate(self.all_frames):
+            player_frame = frame.ports[player_port].leader
+            player_state = player_frame.post.state
+            
+            if player_state == ActionState.DASH:
+                is_dashing = True
+                self.dashes.append(DashData(player_frame.post.position.x))
+                self.dashes
+                if (port_frame_by_index(player_port, i - 1, self.all_frames).post.state == ActionState.WAIT and
+                    port_frame_by_index(player_port, i - 2, self.all_frames).post.state == ActionState.DASH):
+                    self.dashes[-1].is_dashdance = True
+            else: 
+                if is_dashing:
+                    self.dashes[-1].end_pos = player_frame.post.position.x
+                    is_dashing = False
+    
+    def opening_compute(self, connect_code:str):
+        pass
+
+    def tech_compute(self, connect_code:str):
+        pass

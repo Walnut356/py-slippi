@@ -809,3 +809,16 @@ class Item(IntEnum):
     ARWING_LASER = 0xEA
     GREAT_FOX_LASER = 0xEB
     BIRDO_EGG = 0xEC
+
+class TurnipFace(IntEnum):
+    # TODO verify this
+    SMILEY = 0
+    BORED = 1
+    SLEEPY = 2
+    SHOCKED = 3
+    LAUGHING = 4
+    WINK = 5
+    DOT = 6
+    STITCH = 7
+
+
