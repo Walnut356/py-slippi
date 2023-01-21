@@ -4,6 +4,9 @@ from .util import *
 
 # Use reference: https://docs.google.com/spreadsheets/d/1JX2w-r2fuvWuNgGb6D3Cs4wHQKLFegZe2jhbBuIhCG8/edit#gid=13
 
+# To check if an action state is zero-indexed:https://github.com/altf4/libmelee/blob/master/melee/actiondata.csv
+# I might add some form of check in here, but for now i just handle it manually.
+
 class ActionState(IntEnum):
 # ID Ranges - used to simplify checks for stat calculators
     DAMAGE_START = 75

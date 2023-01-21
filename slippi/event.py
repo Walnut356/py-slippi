@@ -33,6 +33,7 @@ class Start(Base):
     is_pal: Optional[bool] #: `added(1.5.0)` True if this was a PAL version of Melee
     is_frozen_ps: Optional[bool] #: `added(2.0.0)` True if frozen Pokemon Stadium was enabled
     match_id: Optional[str] #: `added(3.14.0)` Mode (ranked/unranked) and time the match started
+    is_ranked: Optional[bool]
     game_number: Optional[int] #: `added(3.14.0)` The game number for consecutive games
 
     def __init__(self, is_teams: bool, players: Tuple[Optional[Start.Player]], random_seed: int, slippi: Start.Slippi, stage: sid.Stage, 
@@ -46,6 +47,8 @@ class Start(Base):
         self.is_pal = is_pal
         self.is_frozen_ps = is_frozen_ps
         self.match_id = match_id
+        if match_id:
+            self.is_ranked = match_id[5] == "r" #it's lazy, but it seems like a waste to import regex for this
         self.game_number = game_number
 
     @classmethod

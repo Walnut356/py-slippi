@@ -56,7 +56,7 @@ def expect_bytes(expected_bytes, stream):
 
 
 class Base:
-    __slots__: Tuple = ()
+    # __slots__: Tuple = ()
 
     def _attr_repr(self, attr):
         return attr + '=' + _format(getattr(self, attr))
@@ -65,7 +65,7 @@ class Base:
         attrs = []
         for attr in dir(self):
             # uppercase names are nested classes
-            if not (attr.startswith('_') or attr[0].isupper()):
+            if not callable(getattr(self, attr)) and not (attr.startswith('_') or attr[0].isupper()):
                 s = self._attr_repr(attr)
                 if s:
                     attrs.append(_indent(s))

@@ -67,7 +67,7 @@ class Metadata(Base):
                      netplay: Optional[Metadata.Player.Netplay] = None):
             self.characters = characters
             self.netplay = netplay
-            if not netplay == None:
+            if not netplay is None:
                 self.connect_code = netplay.code
                 self.display_name = netplay.name
 

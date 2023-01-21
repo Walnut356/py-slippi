@@ -29,7 +29,7 @@ def multi_find_combos(dir_path, connect_code: str):
             futures = {executor.submit(combo_from_file, os.path.join(dir_path, entry.name), connect_code) for entry in thing}
 
             for future in concurrent.futures.as_completed(futures):
-                for result in future.result():
+                for result in future.result(timeout=10):
                     print("file processed")
                     dolphin_queue["queue"].append(result)
 
