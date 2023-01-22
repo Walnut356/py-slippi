@@ -59,17 +59,18 @@ class Metadata(Base):
     class Player(Base):
         """Contains metadata from the perspective of slippi, including character usage, netplay info, connect code, and display name"""
         characters: Dict[sid.InGameCharacter, int] #: Character(s) used, with usage duration in frames (for Zelda/Sheik)
-        netplay: Optional[Metadata.Player.Netplay] #: Netplay info (Dolphin-only)
         connect_code: Optional[str]
         display_name: Optional[str]
 
         def __init__(self, characters: Dict[sid.InGameCharacter, int], 
                      netplay: Optional[Metadata.Player.Netplay] = None):
             self.characters = characters
-            self.netplay = netplay
-            if not netplay is None:
+            if netplay:
                 self.connect_code = netplay.code
                 self.display_name = netplay.name
+            else:
+                self.connect_code = None
+                self.display_name = None
 
         @classmethod
         def _parse(cls, json):

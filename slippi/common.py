@@ -105,10 +105,22 @@ def is_wavedashing(action_state: int, port:int,  frame_index: int, all_frames: L
     if action_state != ActionState.ESCAPE_AIR:
         return False
     for i in range(1, 4):
-        if (port_frame_by_index(port, frame_index + i, all_frames).post.state == ActionState.LAND_FALL_SPECIAL or
-            port_frame_by_index(port, frame_index - i, all_frames).post.state == ActionState.KNEE_BEND):
+        if (port_frame_by_index(port, frame_index + i, all_frames).post.state == ActionState.LAND_FALL_SPECIAL):
             return True
     return False
 
 def port_frame_by_index(port: int, index: int, all_frames: List[Frame]):
     return all_frames[index].ports[port].leader
+
+def death_direction(action_state: int) -> str:
+    match action_state:
+        case 0:
+            return "Bottom"
+        case 1:
+            return "Left"
+        case 2:
+            return "Right"
+        case 3, 4, 5, 6, 7, 8, 9, 10:
+            return "Top"
+        case _:
+            return "Invalid Action State"

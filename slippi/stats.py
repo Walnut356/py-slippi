@@ -97,7 +97,8 @@ class StatsComputer(Base):
             player_frame = frame.ports[player_port].leader
             player_state = player_frame.post.state
             prev_player_frame = port_frame_by_index(player_port, i - 1, self.all_frames)
-            
+
+            #TODO add wavesurf logic? 
             if player_state == ActionState.LAND_FALL_SPECIAL and prev_player_frame.post.state != ActionState.LAND_FALL_SPECIAL:
                 for j in reversed(range(0, 5)):
                     past_frame = port_frame_by_index(player_port, i - j, self.all_frames)
@@ -111,7 +112,7 @@ class StatsComputer(Base):
                                 break
                         break
     
-    def dashdance_compute(self, connect_code: str):
+    def dash_compute(self, connect_code: str):
         player_port = None
         for player in self.players:
             if player.code == connect_code.upper():
@@ -128,6 +129,7 @@ class StatsComputer(Base):
                 is_dashing = True
                 self.dashes.append(DashData(player_frame.post.position.x))
                 self.dashes
+                # The pattern dash -> wait -> dash should catch all dash dances, fox trots will count as 2 different dash instances i think
                 if (port_frame_by_index(player_port, i - 1, self.all_frames).post.state == ActionState.WAIT and
                     port_frame_by_index(player_port, i - 2, self.all_frames).post.state == ActionState.DASH):
                     self.dashes[-1].is_dashdance = True
