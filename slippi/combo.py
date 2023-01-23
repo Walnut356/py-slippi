@@ -152,8 +152,8 @@ class ComboComputer(ComputerBase):
 
             # Frames are -123 indexed, so we can't just pull the frame's .index to acquire the previous frame
             # this is the sole reason for enumerating self.all_frames
-                prev_player_frame = self.port_frame_by_index(player_port, i - 1, self.all_frames).post
-                prev_opponent_frame = self.port_frame_by_index(opponent_port, i - 1, self.all_frames).post
+                prev_player_frame = self.port_frame_by_index(player_port, i - 1).post
+                prev_opponent_frame = self.port_frame_by_index(opponent_port, i - 1).post
 
                 opnt_action_state = opponent_frame.state
                 opnt_is_damaged = is_damaged(opnt_action_state)
@@ -190,7 +190,7 @@ class ComboComputer(ComputerBase):
                     if self.combo_state.combo is None:
                         self.combo_state.combo = ComboData()
                         if self.players[player_port].connect_code:
-                                self.combo_state.move.player = self.players[player_port].connect_code
+                            self.combo_state.move.player = self.players[player_port].connect_code
                         else:
                             self.combo_state.move.player = f"Port {player_port}"
                         self.combo_state.combo.moves = []
@@ -284,7 +284,7 @@ class ComboComputer(ComputerBase):
 
             # All combo termination checks below
                 if opnt_is_dying:
-                    self.combo_state.combo.death_direction = death_direction(opnt_action_state)
+                    self.combo_state.combo.death_direction = get_death_direction(opnt_action_state)
 
                 if opnt_did_lose_stock:
                     self.combo_state.combo.did_kill = True

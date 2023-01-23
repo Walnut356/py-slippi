@@ -1,19 +1,29 @@
-from typing import List, Optional, Union
-from os import Pathlike
+from typing import List, Optional, Union, Tuple, Dict
+from os import PathLike
+from enum import Enum
 
 from .game import Game
-from .event import Frame, StateFlags
+from .event import Frame, StateFlags, Start
 from .id import ActionState, Stage
+from .util import Base
+from .metadata import Metadata
 
 
 class ComputerBase(Base):
 
-    def prime_replay(self, replay: Pathlike | Game | str, retain_data=False) -> None:
+    rules: Optional[Start]
+    players: List[Metadata.Player]
+    all_frames: List[Frame]
+    metadata: Optional[Metadata]
+    queue: List[Dict]
+    replay_path: PathLike | str
+
+    def prime_replay(self, replay: PathLike | Game | str, retain_data=False) -> None:
         """Parses a replay and loads the relevant data into the combo computer. Call combo_compute(connect_code) to extract combos
         from parsed replay"""
-        if isinstance(replay, Pathlike) or isinstance(replay, str):
+        if isinstance(replay, PathLike) or isinstance(replay, str):
             parsed_replay = Game(replay)
-            self.replay_path = replay_path
+            self.replay_path = replay
         if isinstance(replay, Game):
             parsed_replay = replay
             self.replay_path = ""
@@ -44,11 +54,11 @@ class ComputerBase(Base):
                 return []
             return player_ports
         
-    def port_frame(port:int, frame: Frame):
+    def port_frame(self, port:int, frame: Frame):
         return frame.ports[port].leader
     
-    def port_frame_by_index(port: int, index: int, all_frames: List[Frame]):
-        return all_frames[index].ports[port].leader
+    def port_frame_by_index(self, port: int, index: int):
+        return self.all_frames[index].ports[port].leader
     
     def reset_data(self):
         return
@@ -90,7 +100,9 @@ def is_cmd_grabbed(action_state: int) -> bool:
 
 def is_teching(action_state: int) -> bool:
     """Recieves action state, returns whether or not it falls into the tech action states, includes walljump/ceiling techs"""
-    return (ActionState.TECH_START <= action_state <= ActionState.TECH_END)
+    return (ActionState.TECH_START <= action_state <= ActionState.TECH_END or
+    action_state == ActionState.FLY_REFLECT_CEIL or
+    action_state == ActionState.FLY_REFLECT_WALL)
 
 def is_dying(action_state: int) -> bool:
     """Reieves action state, returns whether or not player is in the dying animation from any blast zone"""
@@ -157,13 +169,11 @@ def is_wavedashing(action_state: int, port:int,  frame_index: int, all_frames: L
     if action_state != ActionState.ESCAPE_AIR:
         return False
     for i in range(1, 4):
-        if (port_frame_by_index(port, frame_index + i, all_frames).post.state == ActionState.LAND_FALL_SPECIAL):
+        if (all_frames[frame_index - i].ports[port].leader.post.state == ActionState.LAND_FALL_SPECIAL):
             return True
     return False
 
-
-
-def death_direction(action_state: int) -> str:
+def get_death_direction(action_state: int) -> str:
     match action_state:
         case 0:
             return "Bottom"
@@ -176,6 +186,44 @@ def death_direction(action_state: int) -> str:
         case _:
             return "Invalid Action State"
 
+class TechType(Enum):
+    TECH_IN_PLACE = 0
+    TECH_LEFT = 1
+    TECH_RIGHT = 2
+    GET_UP_ATTACK = 3
+    MISSED_TECH = 4
+    WALL_TECH = 5
+    MISSED_WALL_TECH = 6
+    WALL_JUMP_TECH = 7
+    CEILING_TECH = 8
+    MISSED_CEILING_TECH = 9
+    JAB_RESET = 10
+
+def get_tech_type(action_state: int, direction) -> TechType:
+    match action_state:
+        case ActionState.PASSIVE, ActionState.DOWN_STAND_U, ActionState.DOWN_STAND_D:
+            return TechType.TECH_IN_PLACE
+        case ActionState.PASSIVE_STAND_F, ActionState.DOWN_FOWARD_U, ActionState.DOWN_FOWARD_D:
+            if direction > 0: return TechType.TECH_RIGHT
+            else: return TechType.TECH_LEFT
+        case ActionState.PASSIVE_STAND_B, ActionState.DOWN_BACK_U, ActionState.DOWN_BACK_D:
+            if direction > 0: return TechType.TECH_LEFT
+            else: return TechType.TECH_RIGHT
+        case ActionState.DOWN_ATTACK_U, ActionState.DOWN_ATTACK_D:
+            return TechType.GET_UP_ATTACK
+        case ActionState.DOWN_BOUND_U, ActionState.DOWN_BOUND_D, ActionState.DOWN_WAIT_D, ActionState.DOWN_WAIT_U:
+            return TechType.MISSED_TECH
+        case ActionState.DOWN_DAMAGE_U, ActionState.DOWN_DAMAGE_D:
+            return TechType.JAB_RESET
+        case ActionState.PASSIVE_WALL:
+            return TechType.WALL_TECH
+        case ActionState.PASSIVE_WALL_JUMP:
+            return TechType.WALL_JUMP_TECH
+        case ActionState.PASSIVE_CEIL:
+            return TechType.CEILING_TECH
+        case _:
+            return None
+    
 
 
         

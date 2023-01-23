@@ -424,9 +424,9 @@ class Frame(Base):
                 """Post-frame update data, for making decisions about game states (such as computing stats).
                 Information is collected at the end of collision detection, which is the last consideration of the game engine."""
 
-                __slots__ = 'character', 'state', 'position', 'facing_direction', 'percent', 'shield_size', 'stocks_remaining',\
-                'last_attack_landed', 'last_hit_by', 'combo_count', 'state_age', 'flags', 'is_in_hitstun',\
-                'is_airborne', 'last_ground_id', 'jumps_remaining', 'l_cancel'
+                __slots__ = ('character', 'state', 'position', 'facing_direction', 'percent', 'shield_size', 'stocks_remaining',
+                'most_recent_hit', 'last_hit_by', 'combo_count', 'state_age', 'flags', 'is_in_hitstun','is_airborne', 'last_ground_id',
+                'jumps_remaining', 'l_cancel')
 
                 character: sid.InGameCharacter #: In-game character (can only change for Zelda/Sheik). Check on first frame to determine if Zelda started as Sheik
                 state: Union[sid.ActionState, int] #: Character's action state
@@ -435,7 +435,7 @@ class Frame(Base):
                 percent: float #: Current damage percent
                 shield_size: float #: Current size of shield
                 stocks_remaining: int #: Number of stocks remaining
-                last_attack_landed: Union[Attack, int] #: Last attack that this character landed
+                most_recent_hit: Union[Attack, int] #: Last attack that this character landed
                 last_hit_by: Optional[int] #: Port of character that last hit this character
                 combo_count: int #: Combo count as defined by the game
                 state_age: Optional[float] #: `added(0.2.0)` Number of frames action state has been active. Can have a fractional component for certain actions
@@ -450,7 +450,7 @@ class Frame(Base):
 
                 def __init__(self, character: sid.InGameCharacter, state: Union[sid.ActionState, int],
                              position: Position, direction: Direction, damage: float, shield: float, stocks: int,
-                             last_attack_landed: Union[Attack, int], last_hit_by: Optional[int], combo_count: int,
+                             most_recent_hit: Union[Attack, int], last_hit_by: Optional[int], combo_count: int,
                              state_age: Optional[float] = None, flags: Optional[StateFlags] = None,
                              hit_stun: Optional[float] = None, airborne: Optional[bool] = None,
                              ground: Optional[int] = None, jumps: Optional[int] = None,
@@ -462,7 +462,7 @@ class Frame(Base):
                     self.percent = damage
                     self.shield_size = shield
                     self.stocks_remaining = stocks
-                    self.last_attack_landed = last_attack_landed
+                    self.most_recent_hit = most_recent_hit
                     self.last_hit_by = last_hit_by
                     self.combo_count = combo_count
                     self.state_age = state_age
@@ -702,6 +702,7 @@ class Velocity(Base):
     def __repr__(self):
         return '(%.2f, %.2f)' % (self.x, self.y)
 
+# TODO move all the enums to .id
 
 class Direction(IntEnum):
     LEFT = -1
@@ -900,6 +901,7 @@ class Buttons(Base):
 
 
 class LCancel(IntEnum):
+    NOT_APPLICABLE = 0
     SUCCESS = 1
     FAILURE = 2
 

@@ -820,5 +820,3 @@ class TurnipFace(IntEnum):
     WINK = 5
     DOT = 6
     STITCH = 7
-
-
