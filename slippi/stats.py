@@ -58,13 +58,14 @@ class TechData(Base):
     
 
 
-class StatsComputer(Base):
+class StatsComputer(ComputerBase):
     rules: Optional[Start]
-    players: List[PlayerIndex]
+    players: List[Metadata.Player]
     all_frames: List[Frame]
     metadata: Optional[Metadata]
     wavedashes: List[WavedashData]
     dashes: List[DashData]
+    techs: List[TechData]
     
     def __init__(self):
         self.rules = None
@@ -72,74 +73,81 @@ class StatsComputer(Base):
         self.all_frames = []
         self.metadata = None
         self.wavedashes = []
-    
-    def prime_replay(self, replay_path, retain_data=False) -> None:
-        """Parses a replay and loads the relevant data into the combo computer. Call combo_compute(connect_code) to extract combos
-        from parsed replay"""
-        parsed_replay = Game(replay_path)
-        self.rules = parsed_replay.start
-        for i in range(0,2):
-            self.players.append(PlayerIndex(parsed_replay.start.players[i], parsed_replay.metadata.players[i].connect_code, i))
-        self.all_frames = parsed_replay.frames
-        self.metadata = parsed_replay.metadata
-        self.replay_path = replay_path
-        if not retain_data:
-            self.wavedashes = []
+        self.dashes = []
+
+    def reset_data(self):
+        self.wavedashes = []
+        self.dashes = []
 
     def wavedash_compute(self, connect_code: str):
-        player_port = None
-        for player in self.players:
-            if player.code == connect_code.upper():
-                player_port = player.port
-                break
+        player_ports = None
+        opponent_port = None
         
-        for i, frame in enumerate(self.all_frames):
-            player_frame = frame.ports[player_port].leader
-            player_state = player_frame.post.state
-            prev_player_frame = port_frame_by_index(player_port, i - 1, self.all_frames)
+        if connect_code:
+            player_ports, opponent_port = self.generate_player_ports(self.players, self.rules.players, connect_code)
+        else:
+            player_ports = self.generate_player_ports(self.players, self.rules.players, connect_code)
+            
+        for port_index, player_port in enumerate(player_ports):
+            if len(player_ports) == 2:
+                opponent_port = player_ports[port_index - 1] # Only works for 2 ports
 
-            #TODO add wavesurf logic? 
-            if player_state == ActionState.LAND_FALL_SPECIAL and prev_player_frame.post.state != ActionState.LAND_FALL_SPECIAL:
-                for j in reversed(range(0, 5)):
-                    past_frame = port_frame_by_index(player_port, i - j, self.all_frames)
-                    if Buttons.Physical.R in past_frame.pre.buttons.physical.pressed() or Buttons.Physical.L in past_frame.pre.buttons.physical.pressed():
-                        self.wavedashes.append(WavedashData(0, player_frame.pre.joystick, j))
-                        for k in range(0, 5):
-                            past_frame = port_frame_by_index(player_port, i - j - k, self.all_frames)
-                            if past_frame.post.state == ActionState.KNEE_BEND:
-                                self.wavedashes[-1].r_frame = k
-                                self.wavedashes[-1].waveland = False
-                                break
-                        break
+            for i, frame in enumerate(self.all_frames):
+                player_frame = self.port_frame(player_port, frame)
+                player_state = player_frame.post.state
+                prev_player_frame = self.port_frame_by_index(player_port, i - 1, self.all_frames)
+
+                #TODO add wavesurf logic? 
+                if player_state == ActionState.LAND_FALL_SPECIAL and prev_player_frame.post.state != ActionState.LAND_FALL_SPECIAL:
+                    for j in reversed(range(0, 5)):
+                        past_frame = self.port_frame_by_index(player_port, i - j, self.all_frames)
+                        if Buttons.Physical.R in past_frame.pre.buttons.physical.pressed() or Buttons.Physical.L in past_frame.pre.buttons.physical.pressed():
+                            self.wavedashes.append(WavedashData(0, player_frame.pre.joystick, j))
+                            for k in range(0, 5):
+                                past_frame = self.port_frame_by_index(player_port, i - j - k, self.all_frames)
+                                if past_frame.post.state == ActionState.KNEE_BEND:
+                                    self.wavedashes[-1].r_frame = k
+                                    self.wavedashes[-1].waveland = False
+                                    break
+                            break
     
     def dash_compute(self, connect_code: str):
-        player_port = None
-        for player in self.players:
-            if player.code == connect_code.upper():
-                player_port = player.port
-                break
+        player_ports = None
+        opponent_port = None
         
+        if connect_code:
+            player_ports, opponent_port = self.generate_player_ports(connect_code)
+        else:
+            player_ports = self.generate_player_ports()
+
         is_dashing = False
 
-        for i, frame in enumerate(self.all_frames):
-            player_frame = frame.ports[player_port].leader
-            player_state = player_frame.post.state
-            
-            if player_state == ActionState.DASH:
-                is_dashing = True
-                self.dashes.append(DashData(player_frame.post.position.x))
-                self.dashes
-                # The pattern dash -> wait -> dash should catch all dash dances, fox trots will count as 2 different dash instances i think
-                if (port_frame_by_index(player_port, i - 1, self.all_frames).post.state == ActionState.WAIT and
-                    port_frame_by_index(player_port, i - 2, self.all_frames).post.state == ActionState.DASH):
-                    self.dashes[-1].is_dashdance = True
-            else: 
-                if is_dashing:
-                    self.dashes[-1].end_pos = player_frame.post.position.x
-                    is_dashing = False
+        for port_index, player_port in enumerate(player_ports):
+            if len(player_ports) == 2:
+                opponent_port = player_ports[port_index - 1] # Only works for 2 ports
+
+            for i, frame in enumerate(self.all_frames):
+                player_frame = self.port_frame(player_port, frame)
+                player_state = player_frame.post.state
+                
+                if player_state == ActionState.DASH:
+                    is_dashing = True
+                    self.dashes.append(DashData(player_frame.post.position.x))
+                    self.dashes
+                    # The pattern dash -> wait -> dash should catch all dash dances, fox trots will count as 2 different dash instances i think
+                    if (port_frame_by_index(player_port, i - 1, self.all_frames).post.state == ActionState.WAIT and
+                        port_frame_by_index(player_port, i - 2, self.all_frames).post.state == ActionState.DASH):
+                        self.dashes[-1].is_dashdance = True
+                else: 
+                    if is_dashing:
+                        self.dashes[-1].end_pos = player_frame.post.position.x
+                        is_dashing = False
     
-    def opening_compute(self, connect_code:str):
-        pass
+    
 
     def tech_compute(self, connect_code:str):
+        pass
+
+
+    def opening_compute(self, connect_code:str):
         pass

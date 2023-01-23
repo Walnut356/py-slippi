@@ -1,7 +1,59 @@
-from typing import List
+from typing import List, Optional, Union
+from os import Pathlike
 
+from .game import Game
 from .event import Frame, StateFlags
 from .id import ActionState, Stage
+
+
+class ComputerBase(Base):
+
+    def prime_replay(self, replay: Pathlike | Game | str, retain_data=False) -> None:
+        """Parses a replay and loads the relevant data into the combo computer. Call combo_compute(connect_code) to extract combos
+        from parsed replay"""
+        if isinstance(replay, Pathlike) or isinstance(replay, str):
+            parsed_replay = Game(replay)
+            self.replay_path = replay_path
+        if isinstance(replay, Game):
+            parsed_replay = replay
+            self.replay_path = ""
+
+        self.rules = parsed_replay.start
+        self.players = parsed_replay.metadata.players
+        # if len(self.players) > 2: raise Exception("Combo compute handles replays with a maximum of 2 players")
+        self.all_frames = parsed_replay.frames
+        self.metadata = parsed_replay.metadata
+        
+        if not retain_data:
+            self.reset_data()
+
+    def generate_player_ports(self, connect_code=None) -> List | Tuple:
+        if connect_code:
+            for i, player in enumerate(self.players):
+                if player.connect_code == connect_code.upper():
+                    player_port = i
+                else:
+                    opponent_port = i
+            return player_port, opponent_port
+        else:
+        # If there's no connect code, extract the port values of both *active* ports
+            player_ports = [i - 1 for i, x in enumerate(self.rules.players) if x is not None]
+        # And if there's more than 2 active ports, we return an empty list which should skip processing. 
+        # TODO make this an exception, but one that doesn't kill the program? Or just some way to track which replays don't get processed
+            if len(player_ports) > 2:
+                return []
+            return player_ports
+        
+    def port_frame(port:int, frame: Frame):
+        return frame.ports[port].leader
+    
+    def port_frame_by_index(port: int, index: int, all_frames: List[Frame]):
+        return all_frames[index].ports[port].leader
+    
+    def reset_data(self):
+        return
+    
+
 
 # Action state ranges are listed in id.py
 
@@ -109,8 +161,7 @@ def is_wavedashing(action_state: int, port:int,  frame_index: int, all_frames: L
             return True
     return False
 
-def port_frame_by_index(port: int, index: int, all_frames: List[Frame]):
-    return all_frames[index].ports[port].leader
+
 
 def death_direction(action_state: int) -> str:
     match action_state:
@@ -124,3 +175,8 @@ def death_direction(action_state: int) -> str:
             return "Top"
         case _:
             return "Invalid Action State"
+
+
+
+        
+        

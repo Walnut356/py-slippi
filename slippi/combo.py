@@ -91,7 +91,7 @@ class ComboState(Base):
     last_hit_animation = None
     event: ComboEvent = None
 
-class ComboComputer(Base):
+class ComboComputer(ComputerBase):
     """Base class for parsing combo events, call .prime_replay(path) to set up the instance,
     and .combo_compute(connect_code) to populate the computer's .combos list. """
     rules: Optional[Start]
@@ -112,22 +112,10 @@ class ComboComputer(Base):
         self.metadata = None
         self.queue = []
 
-    # I could probably do this in the init statement, but the official parser does this as well.
-    # Presumably to allow combo computers to be reused
-    def prime_replay(self, replay_path, retain_data=False) -> None:
-        """Parses a replay and loads the relevant data into the combo computer. Call combo_compute(connect_code) to extract combos
-        from parsed replay"""
-        parsed_replay = Game(replay_path)
-        self.rules = parsed_replay.start
-        self.players = parsed_replay.metadata.players
-        if len(self.players) > 2: raise Exception("Combo compute handles replays with a maximum of 2 players")
-        self.all_frames = parsed_replay.frames
-        self.combo_state = ComboState()
-        self.metadata = parsed_replay.metadata
-        self.replay_path = replay_path
-        if not retain_data:
-            self.combos = []
-            self.queue = []
+    def reset_data(self):
+        self.combos = []
+        self.combo_state = None
+        self.queue = []
     
     def json_export(self, c: ComboData):
         self.queue.append({})
@@ -147,32 +135,25 @@ class ComboComputer(Base):
         opponent_port = None
         
         if connect_code:
-            for i, player in enumerate(self.players):
-                if player.connect_code == connect_code.upper():
-                    player_ports = [i]
-                else:
-                    opponent_port = i
+            player_ports, opponent_port = self.generate_player_ports(connect_code)
         else:
-            # If there's no connect code, extract the port values of both active ports
-            player_ports = [i - 1 for i, x in enumerate(self.start.players) if x is not None]
+            player_ports = self.generate_player_ports(connect_code)
             
-
-        # TODO add handling for connect code not found
         for port_index, player_port in enumerate(player_ports):
-            # This is super gross but the c++ in me says this is the least annoying way to do this for now
+        # This is super gross but the c++ in me says this is the least annoying way to do this for now
             if len(player_ports) == 2:
-                opponent_port = player_ports[port_index - 1]
+                opponent_port = player_ports[port_index - 1] # This will obviously only work for 2 ports max
 
             for i, frame in enumerate(self.all_frames):
             # player data is stored as list of frames -> individual frame -> port -> leader/follower -> pre/post frame data
             # we make an interface as soon as possible because that's awful
-                player_frame: Frame.Port.Data.Post = frame.ports[player_port].leader.post
-                opponent_frame: Frame.Port.Data.Post = frame.ports[opponent_port].leader.post
+                player_frame = self.port_frame(player_port, frame).post
+                opponent_frame = self.port_frame(opponent_port, frame).post
 
             # Frames are -123 indexed, so we can't just pull the frame's .index to acquire the previous frame
             # this is the sole reason for enumerating self.all_frames
-                prev_player_frame: Frame.Port.Data.Post = self.all_frames[i - 1].ports[player_port].leader.post
-                prev_opponent_frame: Frame.Port.Data.Post = self.all_frames[i - 1].ports[opponent_port].leader.post
+                prev_player_frame = self.port_frame_by_index(player_port, i - 1, self.all_frames).post
+                prev_opponent_frame = self.port_frame_by_index(opponent_port, i - 1, self.all_frames).post
 
                 opnt_action_state = opponent_frame.state
                 opnt_is_damaged = is_damaged(opnt_action_state)
@@ -208,7 +189,10 @@ class ComboComputer(Base):
                 # if the opponent has been hit and there's no "active" combo, start a new combo
                     if self.combo_state.combo is None:
                         self.combo_state.combo = ComboData()
-                        self.combo_state.combo.player = self.players[player_port].code
+                        if self.players[player_port].connect_code:
+                                self.combo_state.move.player = self.players[player_port].connect_code
+                        else:
+                            self.combo_state.move.player = f"Port {player_port}"
                         self.combo_state.combo.moves = []
                         self.combo_state.combo.did_kill = False
                         self.combo_state.combo.player_stocks = player_frame.stocks_remaining
@@ -225,11 +209,14 @@ class ComboComputer(Base):
 
                         combo_started = True
 
-                    # if the opponent has been hit and we're sure it's not the same move, record the move's data
+                # if the opponent has been hit and we're sure it's not the same move, record the move's data
                     if opnt_damage_taken:
                         if self.combo_state.last_hit_animation is None:
                             self.combo_state.move = MoveLanded()
-                            self.combo_state.move.player = self.players[player_port].code
+                            if self.players[player_port].connect_code:
+                                self.combo_state.move.player = self.players[player_port].connect_code
+                            else:
+                                self.combo_state.move.player = f"Port {player_port}"
                             self.combo_state.move.frame = frame.index
                             self.combo_state.move.move_id = player_frame.last_attack_landed
                             self.combo_state.move.hit_count = 0
@@ -275,7 +262,6 @@ class ComboComputer(Base):
             # reset the combo timeout timer to 0 if the opponent meets the following conditions
             # list expanded from official parser to allow for higher combo variety and capture more of what we would count as "combos"
             # noteably, this list will allow mid-combo shield pressure and edgeguards to be counted as part of a combo
-            # TODO add interface to disable/enable these checks? (argument && is_X check)
                 if (opnt_is_damaged or # Action state range
                     opnt_is_grabbed or # Action state range
                     opnt_is_cmd_grabbed or # Action state range
@@ -330,3 +316,4 @@ def generate_clippi_header():
         ]
         }
     return header
+
