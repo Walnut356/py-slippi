@@ -85,7 +85,7 @@ class Metadata(Base):
         def __eq__(self, other):
             if not isinstance(other, self.__class__):
                 return NotImplemented
-            return self.characters == other.characters and self.netplay == other.netplay
+            return self.characters == other.characters and self.connect_code == other.connect_code
 
 
         class Netplay(Base):

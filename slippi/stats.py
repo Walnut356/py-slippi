@@ -44,6 +44,14 @@ class DashData(Base):
     def distance(self) -> float:
         return abs(self.end_pos - self.start_pos)
 
+class DashState(Base):
+    dash: DashData
+    active_dash: bool
+    
+    def __init__(self):
+        self.dash = DashData()
+        self.active_dash = False
+
 class TechData(Base):
     tech_type: TechType
     position: Position
@@ -64,7 +72,11 @@ class TechData(Base):
 class TechState(Base):
     tech: TechData
     last_state: ActionState | int
-    finalize: bool
+    
+    def __init__(self):
+        self.tech = TechData()
+        self.last_state = None
+        
 
 
 class StatsComputer(ComputerBase):
@@ -123,6 +135,7 @@ class StatsComputer(ComputerBase):
                             break
     
     def dash_compute(self, connect_code: str):
+        self.dash_state = DashState()
         player_ports = None
         opponent_port = None
         
@@ -140,8 +153,17 @@ class StatsComputer(ComputerBase):
             for i, frame in enumerate(self.all_frames):
                 player_frame = self.port_frame(player_port, frame)
                 player_state = player_frame.post.state
+                prev_player_frame = self.port_frame_by_index(player_port, i - 1)
+                prev_player_state = prev_player_frame.post.state
                 
-                if player_state == ActionState.DASH:
+                # if last 2 states weren't dash and curr state is dash, start dash event
+                # if the state pattern dash -> wait -> dash occurs, mark as dashdance
+                # if prev prev state was dash, prev state was not dash, and curr state isn't dash, end dash event 
+                
+                
+                
+                
+                if player_state == ActionState.DASH and (prev_player_state != ActionState.DASH or self.port_frame_by_index(player_port, i - 2).post.state != ActionState.WAIT):
                     is_dashing = True
                     self.dashes.append(DashData(player_frame.post.position.x))
                     self.dashes
@@ -153,8 +175,7 @@ class StatsComputer(ComputerBase):
                     if is_dashing:
                         self.dashes[-1].end_pos = player_frame.post.position.x
                         is_dashing = False
-    
-    
+
 
     def tech_compute(self, connect_code:str):
         player_ports = None
@@ -183,7 +204,7 @@ class StatsComputer(ComputerBase):
             # Close out active techs if we were teching, and save some processing power if we weren't
                 if not curr_teching:
                     if was_teching:
-                        self.techs.append(TechState.tech)
+                        self.techs.append(self.tech_state.tech)
                         self.tech_state = None
                     continue
 
@@ -192,7 +213,7 @@ class StatsComputer(ComputerBase):
             # If we are, create a tech event, and start filling out fields based on the info we have
                 if not was_teching:
                     self.tech_state = TechState()
-                    self.tech_state.tech.last_hit_by = try_enum(Attack, opponent_frame.most_recent_hit)
+                    self.tech_state.tech.last_hit_by = try_enum(Attack, opponent_frame.most_recent_hit).name
                     self.tech_state.tech.position = player_frame.position
                     self.tech_state.tech.is_on_platform = player_frame.position.y > 5 # Arbitrary value, i'll have to fact check this
 
@@ -236,13 +257,6 @@ class StatsComputer(ComputerBase):
                     
                     case _: # Tech in place, getup attack
                         pass
-
-
-                
-
-
-                
-
 
 
     def opening_compute(self, connect_code:str):

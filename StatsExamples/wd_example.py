@@ -1,16 +1,17 @@
 from slippi import *
 from pathlib import Path
 
-file = Path(r"E:\Slippi Replays\Netplay\Game_20230116T194232.slp")
+file = Path(r"C:\Users\ant_b\Documents\Coding Projects\starcraft calculator\sc2calc\py-slippi\Modern Replays\BADS#412 (Sheik) vs NUT#356 (Falco) on DL - 12-12-22 09.06pm .slp")
 
 replay = Game(file)
 
 print(replay.start.match_id)
 print(replay.start.is_ranked)
 
-file = Path(r"E:\Slippi Replays\Netplay\Game_20230119T065241.slp")
+thing = ComboComputer()
+thing.prime_replay(file)
 
-replay = Game(file)
+thing.combo_compute("NUT#356")
 
-print(replay.start.match_id)
-print(replay.start.is_ranked)
+print(len(thing.combos))
+

@@ -505,7 +505,7 @@ class Frame(Base):
                         damage=damage,
                         shield=shield,
                         stocks=stocks,
-                        last_attack_landed=try_enum(Attack, last_attack_landed) if last_attack_landed else None,
+                        most_recent_hit=try_enum(Attack, last_attack_landed) if last_attack_landed else None,
                         last_hit_by=last_hit_by if last_hit_by < 4 else None,
                         combo_count=combo_count,
                         flags=flags,

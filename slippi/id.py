@@ -7,7 +7,7 @@ from .util import *
 # To check if an action state is zero-indexed:https://github.com/altf4/libmelee/blob/master/melee/actiondata.csv
 # I might add some form of check in here, but for now i just handle it manually.
 
-class ActionState(IntEnum):
+class ActionRange(IntEnum):
 # ID Ranges - used to simplify checks for stat calculators
     DAMAGE_START = 75
     DAMAGE_END = 91
@@ -43,6 +43,9 @@ class ActionState(IntEnum):
 
     COMMAND_GRAB_RANGE2_START = 327
     COMMAND_GRAB_RANGE2_END = 338
+
+
+class ActionState(IntEnum):
 
 # Individual IDs
     DEAD_DOWN = 0 # Bottom blast zone death

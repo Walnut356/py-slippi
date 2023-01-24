@@ -34,7 +34,7 @@ class MoveLanded(Base):
         self.move_id = 0
         self.hit_count = 0
         self.damage = 0
-        opponent_position = None
+        self.opponent_position = None
 
 class ComboData(Base):
     """Contains a single complete combo, including movelist
@@ -85,11 +85,18 @@ class ComboData(Base):
 
 class ComboState(Base):
     """Contains info used during combo calculation to build the final combo"""
-    combo: Optional[ComboData] = ComboData()
-    move: Optional[MoveLanded] = MoveLanded()
-    reset_counter: int = 0
-    last_hit_animation = None
-    event: ComboEvent = None
+    combo: Optional[ComboData]
+    move: MoveLanded
+    reset_counter: int
+    last_hit_animation: int
+    event: ComboEvent
+    
+    def __init__(self):
+        self.combo = ComboData()
+        self.move = MoveLanded()
+        self.reset_counter = 0
+        self.last_hit_animation = None
+        self.event = None
 
 class ComboComputer(ComputerBase):
     """Base class for parsing combo events, call .prime_replay(path) to set up the instance,
@@ -114,7 +121,7 @@ class ComboComputer(ComputerBase):
 
     def reset_data(self):
         self.combos = []
-        self.combo_state = None
+        self.combo_state = ComboState()
         self.queue = []
     
     def json_export(self, c: ComboData):
@@ -142,7 +149,7 @@ class ComboComputer(ComputerBase):
         for port_index, player_port in enumerate(player_ports):
         # This is super gross but the c++ in me says this is the least annoying way to do this for now
             if len(player_ports) == 2:
-                opponent_port = player_ports[port_index - 1] # This will obviously only work for 2 ports max
+                opponent_port:int = player_ports[port_index - 1] # This will obviously only work for 2 ports max
 
             for i, frame in enumerate(self.all_frames):
             # player data is stored as list of frames -> individual frame -> port -> leader/follower -> pre/post frame data
@@ -190,9 +197,9 @@ class ComboComputer(ComputerBase):
                     if self.combo_state.combo is None:
                         self.combo_state.combo = ComboData()
                         if self.players[player_port].connect_code:
-                            self.combo_state.move.player = self.players[player_port].connect_code
+                            self.combo_state.combo.player = self.players[player_port].connect_code
                         else:
-                            self.combo_state.move.player = f"Port {player_port}"
+                            self.combo_state.combo.player = f"Port {player_port}"
                         self.combo_state.combo.moves = []
                         self.combo_state.combo.did_kill = False
                         self.combo_state.combo.player_stocks = player_frame.stocks_remaining
@@ -218,7 +225,7 @@ class ComboComputer(ComputerBase):
                             else:
                                 self.combo_state.move.player = f"Port {player_port}"
                             self.combo_state.move.frame = frame.index
-                            self.combo_state.move.move_id = player_frame.last_attack_landed
+                            self.combo_state.move.move_id = player_frame.most_recent_hit
                             self.combo_state.move.hit_count = 0
                             self.combo_state.move.damage = 0
                             self.combo_state.move.opponent_position = opponent_frame.position

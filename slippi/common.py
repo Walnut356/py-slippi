@@ -4,7 +4,7 @@ from enum import Enum
 
 from .game import Game
 from .event import Frame, StateFlags, Start
-from .id import ActionState, Stage
+from .id import ActionState, ActionRange, Stage
 from .util import Base
 from .metadata import Metadata
 
@@ -29,7 +29,7 @@ class ComputerBase(Base):
             self.replay_path = ""
 
         self.rules = parsed_replay.start
-        self.players = parsed_replay.metadata.players
+        self.players = [player for player in parsed_replay.metadata.players if player is not None]
         # if len(self.players) > 2: raise Exception("Combo compute handles replays with a maximum of 2 players")
         self.all_frames = parsed_replay.frames
         self.metadata = parsed_replay.metadata
@@ -41,7 +41,7 @@ class ComputerBase(Base):
         if connect_code:
             for i, player in enumerate(self.players):
                 if player.connect_code == connect_code.upper():
-                    player_port = i
+                    player_port = [i]
                 else:
                     opponent_port = i
             return player_port, opponent_port
@@ -70,7 +70,7 @@ class ComputerBase(Base):
 def is_damaged(action_state: int) -> bool:
     """Recieves action state, returns whether or not the player is in a damaged state.
     This includes all generic variants."""
-    return (ActionState.DAMAGE_START <= action_state <= ActionState.DAMAGE_END)
+    return (ActionRange.DAMAGE_START <= action_state <= ActionRange.DAMAGE_END)
 
 def is_in_hitstun(flags: StateFlags) -> bool:
     """Recieves StateFlags, returns whether or not the hitstun bitflag is active.
@@ -89,28 +89,28 @@ def is_in_hitlag(flags: StateFlags) -> bool:
         return False
 
 def is_grabbed(action_state: int) -> bool:
-    return (ActionState.CAPTURE_START <= action_state <= ActionState.CAPTURE_END)
+    return (ActionRange.CAPTURE_START <= action_state <= ActionRange.CAPTURE_END)
 
 def is_cmd_grabbed(action_state: int) -> bool:
     """Reieves action state, returns whether or not player is command grabbed (falcon up b, kirby succ, cargo throw, etc)"""
     #Includes sing, bury, ice, cargo throw, mewtwo side B, koopa claw, kirby suck, and yoshi egg
-    return (((ActionState.COMMAND_GRAB_RANGE1_START <= action_state <= ActionState.COMMAND_GRAB_RANGE1_END)
-        or (ActionState.COMMAND_GRAB_RANGE2_START <= action_state <= ActionState.COMMAND_GRAB_RANGE2_END))
+    return (((ActionRange.COMMAND_GRAB_RANGE1_START <= action_state <= ActionRange.COMMAND_GRAB_RANGE1_END)
+        or (ActionRange.COMMAND_GRAB_RANGE2_START <= action_state <= ActionRange.COMMAND_GRAB_RANGE2_END))
         and not action_state == ActionState.BARREL_WAIT)
 
 def is_teching(action_state: int) -> bool:
     """Recieves action state, returns whether or not it falls into the tech action states, includes walljump/ceiling techs"""
-    return (ActionState.TECH_START <= action_state <= ActionState.TECH_END or
+    return (ActionRange.TECH_START <= action_state <= ActionRange.TECH_END or
     action_state == ActionState.FLY_REFLECT_CEIL or
     action_state == ActionState.FLY_REFLECT_WALL)
 
 def is_dying(action_state: int) -> bool:
     """Reieves action state, returns whether or not player is in the dying animation from any blast zone"""
-    return (ActionState.DYING_START <= action_state <= ActionState.DYING_END)
+    return (ActionRange.DYING_START <= action_state <= ActionRange.DYING_END)
 
 def is_downed(action_state: int) -> bool:
     """Recieves action state, returns whether or not player is downed (i.e. missed tech)"""
-    return (ActionState.DOWN_START <= action_state <= ActionState.DOWN_END)
+    return (ActionRange.DOWN_START <= action_state <= ActionRange.DOWN_END)
 
 def is_offstage(curr_frame: Frame.Port.Data.Post, stage) -> bool:
     """Recieves current frame and stage ID, returns whether or not the player is outside the X coordinates denoting the on-stage bounds"""
@@ -137,16 +137,16 @@ def is_offstage(curr_frame: Frame.Port.Data.Post, stage) -> bool:
 
 def is_shielding(action_state: int) -> bool:
     """Recieves action state, returns whether or not it falls into the guard action states"""
-    return (ActionState.GUARD_START <= action_state <= ActionState.GUARD_END)
+    return (ActionRange.GUARD_START <= action_state <= ActionRange.GUARD_END)
 
 def is_shield_broken(action_state: int) -> bool:
     """Recieves action state, returns whether or not it falls into the guard_break action states"""
-    return (ActionState.GUARD_BREAK_START <= action_state <= ActionState.GUARD_BREAK_END)
+    return (ActionRange.GUARD_BREAK_START <= action_state <= ActionRange.GUARD_BREAK_END)
 
 def is_dodging(action_state: int) -> bool:
     """Recieves action state and returns whether or not it falls into the 'dodging' category.
     Category includes shielded escape options (roll, spot dodge, airdodge)"""
-    return (ActionState.DODGE_START <= action_state <= ActionState.DODGE_END)
+    return (ActionRange.DODGE_START <= action_state <= ActionRange.DODGE_END)
 
 def did_lose_stock(curr_frame: Frame.Port.Data.Post, prev_frame: Frame.Port.Data.Post) -> bool:
     """Recieves current and previous frame, returns stock difference between the two"""
@@ -163,7 +163,7 @@ def calc_damage_taken(curr_frame: Frame.Port.Data.Post, prev_frame: Frame.Port.D
 
 def is_ledge_action(action_state: int):
     """Recieves action state, returns whether or not player is currently hanging from the ledge, or doing any ledge action."""
-    return ActionState.LEDGE_ACTION_START <= action_state <= ActionState.LEDGE_ACTION_END
+    return ActionRange.LEDGE_ACTION_START <= action_state <= ActionRange.LEDGE_ACTION_END
 
 def is_wavedashing(action_state: int, port:int,  frame_index: int, all_frames: List[Frame]) -> bool:
     if action_state != ActionState.ESCAPE_AIR:
@@ -201,19 +201,19 @@ class TechType(Enum):
 
 def get_tech_type(action_state: int, direction) -> TechType:
     match action_state:
-        case ActionState.PASSIVE, ActionState.DOWN_STAND_U, ActionState.DOWN_STAND_D:
+        case ActionState.PASSIVE | ActionState.DOWN_STAND_U | ActionState.DOWN_STAND_D:
             return TechType.TECH_IN_PLACE
-        case ActionState.PASSIVE_STAND_F, ActionState.DOWN_FOWARD_U, ActionState.DOWN_FOWARD_D:
+        case ActionState.PASSIVE_STAND_F | ActionState.DOWN_FOWARD_U | ActionState.DOWN_FOWARD_D:
             if direction > 0: return TechType.TECH_RIGHT
             else: return TechType.TECH_LEFT
-        case ActionState.PASSIVE_STAND_B, ActionState.DOWN_BACK_U, ActionState.DOWN_BACK_D:
+        case ActionState.PASSIVE_STAND_B | ActionState.DOWN_BACK_U | ActionState.DOWN_BACK_D:
             if direction > 0: return TechType.TECH_LEFT
             else: return TechType.TECH_RIGHT
-        case ActionState.DOWN_ATTACK_U, ActionState.DOWN_ATTACK_D:
+        case ActionState.DOWN_ATTACK_U | ActionState.DOWN_ATTACK_D:
             return TechType.GET_UP_ATTACK
-        case ActionState.DOWN_BOUND_U, ActionState.DOWN_BOUND_D, ActionState.DOWN_WAIT_D, ActionState.DOWN_WAIT_U:
+        case ActionState.DOWN_BOUND_U | ActionState.DOWN_BOUND_D | ActionState.DOWN_WAIT_D | ActionState.DOWN_WAIT_U:
             return TechType.MISSED_TECH
-        case ActionState.DOWN_DAMAGE_U, ActionState.DOWN_DAMAGE_D:
+        case ActionState.DOWN_DAMAGE_U | ActionState.DOWN_DAMAGE_D:
             return TechType.JAB_RESET
         case ActionState.PASSIVE_WALL:
             return TechType.WALL_TECH
