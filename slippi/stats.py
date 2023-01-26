@@ -34,6 +34,7 @@ class WavedashData(Base):
 class DashData(Base):
     start_pos: float
     end_pos: float
+    direction: Direction
     is_dashdance: bool
 
     def __init__(self, start_pos=0, end_pos = 0):
@@ -43,6 +44,7 @@ class DashData(Base):
 
     def distance(self) -> float:
         return abs(self.end_pos - self.start_pos)
+    
 
 class DashState(Base):
     dash: DashData
@@ -54,6 +56,7 @@ class DashState(Base):
 
 class TechData(Base):
     tech_type: TechType
+    direction: Direction
     position: Position
     is_on_platform: bool
     is_missed_tech: bool
@@ -144,7 +147,6 @@ class StatsComputer(ComputerBase):
         else:
             player_ports = self.generate_player_ports()
 
-        is_dashing = False
 
         for port_index, player_port in enumerate(player_ports):
             if len(player_ports) == 2:
@@ -155,26 +157,39 @@ class StatsComputer(ComputerBase):
                 player_state = player_frame.post.state
                 prev_player_frame = self.port_frame_by_index(player_port, i - 1)
                 prev_player_state = prev_player_frame.post.state
+                prev_prev_player_frame = self.port_frame_by_index(player_port, i - 2)
+                prev_prev_player_state = prev_prev_player_frame.post.state
                 
                 # if last 2 states weren't dash and curr state is dash, start dash event
                 # if the state pattern dash -> wait -> dash occurs, mark as dashdance
-                # if prev prev state was dash, prev state was not dash, and curr state isn't dash, end dash event 
-                
-                
-                
-                
-                if player_state == ActionState.DASH and (prev_player_state != ActionState.DASH or self.port_frame_by_index(player_port, i - 2).post.state != ActionState.WAIT):
-                    is_dashing = True
-                    self.dashes.append(DashData(player_frame.post.position.x))
-                    self.dashes
-                    # The pattern dash -> wait -> dash should catch all dash dances, fox trots will count as 2 different dash instances
-                    if (self.port_frame_by_index(player_port, i - 1).post.state == ActionState.WAIT and
-                        self.port_frame_by_index(player_port, i - 2).post.state == ActionState.DASH):
-                        self.dashes[-1].is_dashdance = True
-                else: 
-                    if is_dashing:
-                        self.dashes[-1].end_pos = player_frame.post.position.x
-                        is_dashing = False
+                # if prev prev state was dash, prev state was not dash, and curr state isn't dash, end dash event
+
+                if player_state == ActionState.DASH:
+                    if prev_player_state != ActionState.DASH and prev_prev_player_frame != ActionState.DASH:
+                        self.dash_state.dash = DashData()
+                        self.dash_state.active_dash = True
+                        self.dash_state.dash.direction = player_frame.post.facing_direction
+                        self.dash_state.dash.start_pos = player_frame.post.position.x
+                    
+                    if prev_player_state == ActionState.TURN and prev_prev_player_state == ActionState.DASH:
+                        # if a dashdance pattern (dash -> turn -> dash) is detected, first we need to finalize and record the previous dash
+                        self.dash_state.dash.end_pos = prev_prev_player_frame.post.position.x
+                        self.dashes.append(self.dash_state.dash)
+                        # then we need to create a new dash and update its information
+                        self.dash_state.dash = DashData()
+                        self.dash_state.active_dash = True
+                        self.dash_state.dash.direction = player_frame.post.facing_direction
+                        self.dash_state.dash.start_pos = player_frame.post.position.x
+                        self.dash_state.dash.is_dashdance = True
+                    
+                else:
+                    # If not dashing for 2 consecutive frames, finalize the dash and reset the state
+                    if (self.dash_state.active_dash and
+                        prev_player_state != ActionState.DASH and prev_prev_player_state != ActionState.DASH):
+                        self.dash_state.dash.end_pos = prev_prev_player_frame.post.position.x
+                        self.dashes.append(self.dash_state.dash)
+                        self.dash_state.active_dash = False
+                        self.dash_state.dash = DashData()
 
 
     def tech_compute(self, connect_code:str):

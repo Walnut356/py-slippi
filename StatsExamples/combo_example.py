@@ -4,7 +4,7 @@ from typing import List, Dict, Optional
 
 from slippi import *
 from slippi.combo import generate_clippi_header
-
+import filters
 dolphin_queue = generate_clippi_header()
 
 def combo_from_file(file, connect_code: str) -> ComboComputer:
