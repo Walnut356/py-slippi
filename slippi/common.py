@@ -3,7 +3,7 @@ from os import PathLike
 from enum import Enum
 
 from .game import Game
-from .event import Frame, StateFlags, Start
+from .event import Frame, StateFlags, Start, Velocity
 from .id import ActionState, ActionRange, Stage
 from .util import Base
 from .metadata import Metadata
@@ -262,3 +262,13 @@ def get_joystick_region(stick_x: float, stick_y: float) -> JoystickRegion:
         region = JoystickRegion.W
 
     return region
+
+def get_total_velocity(player_frame_post: Frame.Port.Data.Post) -> Optional[Velocity]:
+    # If we don't have one velocity value, we don't have any so we can just return
+    if player_frame_post.self_air_speed is None:
+        return None
+
+    if player_frame_post.is_airborne:
+        return player_frame_post.self_air_speed + player_frame_post.knockback_speed
+    else:
+        return player_frame_post.self_ground_speed + player_frame_post.knockback_speed

@@ -426,36 +426,47 @@ class Frame(Base):
                 Information is collected at the end of collision detection, which is the last consideration of the game engine."""
 
                 __slots__ = ('character', 'state', 'position', 'facing_direction', 'percent', 'shield_size', 'stocks_remaining',
-                'most_recent_hit', 'last_hit_by', 'combo_count', 'state_age', 'flags', 'maybe_hitstun_remaining','is_airborne', 'last_ground_id',
-                'jumps_remaining', 'l_cancel')
+                'most_recent_hit', 'last_hit_by', 'combo_count', 'state_age', 'flags', 'maybe_hitstun_remaining','is_airborne',
+                'last_ground_id', 'jumps_remaining', 'l_cancel', 'hurtbox_status', 'self_ground_speed', 'self_air_speed',
+                'knockback_speed', 'hitlag_remaining', 'animation_index')
 
-                character: sid.InGameCharacter #: In-game character (can only change for Zelda/Sheik).
-                state: Union[sid.ActionState, int] #: Character's action state
-                position: Position #: Character's position
-                facing_direction: Direction #: Direction the character is facing
-                percent: float #: Current damage percent
-                shield_size: float #: Current size of shield
-                stocks_remaining: int #: Number of stocks remaining
-                most_recent_hit: Union[Attack, int] #: Last attack that this character landed
-                last_hit_by: Optional[int] #: Port of character that last hit this character
-                combo_count: int #: Combo count as defined by the game
-                state_age: Optional[float] #: `added(0.2.0)` Number of frames action state has been active. Can have a fractional component for certain actions
-                flags: Optional[StateFlags] #: `added(2.0.0)` State flags
+                character: sid.InGameCharacter # In-game character (can only change for Zelda/Sheik).
+                state: Union[sid.ActionState, int] # Character's action state
+                position: Position # Character's position
+                facing_direction: Direction # Direction the character is facing
+                percent: float # Current damage percent
+                shield_size: float # Current size of shield
+                stocks_remaining: int # Number of stocks remaining
+                most_recent_hit: Union[Attack, int] # Last attack that this character landed
+                last_hit_by: Optional[int] # Port of character that last hit this character
+                combo_count: int # Combo count as defined by the game
+                state_age: Optional[float] # Number of frames action state has been active. Can have a fractional component for certain actions
+                flags: Optional[StateFlags] # State flags
                 maybe_hitstun_remaining: Optional[float] # hitstun boolean
-                is_airborne: Optional[bool] #: `added(2.0.0)` True if character is airborne
-                last_ground_id: Optional[int] #: `added(2.0.0)` ID of ground character is standing on, if any
-                jumps_remaining: Optional[int] #: `added(2.0.0)` Jumps remaining
-                l_cancel: Optional[LCancel] #: `added(2.0.0)` L-cancel status, if any
-                # TODO velocity data - melee tracks 5 different numbers. See: slippi-js/types.ts: PostFrameUpdateType and SelfInducedSpeedsType
-                # TODO stale move queue?
-
+                is_airborne: Optional[bool] # True if character is airborne
+                last_ground_id: Optional[int] # ID of ground character is standing on, if any
+                jumps_remaining: Optional[int] # Jumps remaining
+                l_cancel: Optional[LCancel] # L-cancel status, if any
+                hurtbox_status: Optional[Hurtbox]
+                # speeds are split into 5 values. A shared Y, a grounded and air X, and a knockback X and Y. Generic Y *DOES* matter
+                # even when grounded. For example, watch velocity values when walking on the slanted edges of yoshi's
+                self_ground_speed: Optional[Velocity] # Self induced ground X speed and generic Y speed
+                self_air_speed: Optional[Velocity] # Self induced air X speed and generic Y speed
+                knockback_speed: Optional[Velocity] # Speed from knockback, adds with self-speeds for total velocity
+                hitlag_remaining: Optional[float] # 0 means "not in hitlag"
+                animation_index: Optional[int] # Indicates the animation the character is in, animation derived from state.
+                # TODO enum animation indexes
+                
+                
                 def __init__(self, character: sid.InGameCharacter, state: Union[sid.ActionState, int],
                              position: Position, direction: Direction, damage: float, shield: float, stocks: int,
                              most_recent_hit: Union[Attack, int], last_hit_by: Optional[int], combo_count: int,
-                             state_age: Optional[float] = None, flags: Optional[StateFlags] = None,
-                             hit_stun: Optional[float] = None, airborne: Optional[bool] = None,
-                             ground: Optional[int] = None, jumps: Optional[int] = None,
-                             l_cancel: Optional[LCancel] = None):
+                             state_age: Optional[float] = None, flags: Optional[StateFlags] = None, hit_stun: Optional[float] = None,
+                             airborne: Optional[bool] = None, ground: Optional[int] = None, jumps: Optional[int] = None,
+                             l_cancel: Optional[LCancel] = None, hurtbox_status: Optional[Hurtbox] = None,
+                             self_ground_speed: Optional[Velocity] = None, self_air_speed: Optional[Velocity] = None,
+                             knockback_speed: Optional[Velocity] = None, hitlag_remaining: Optional[float] = None,
+                             animation_index: Optional[int]= None):
                     self.character = character
                     self.state = state
                     self.position = position
@@ -473,6 +484,12 @@ class Frame(Base):
                     self.last_ground_id = ground
                     self.jumps_remaining = jumps
                     self.l_cancel = l_cancel
+                    self.hurtbox_status = hurtbox_status
+                    self.self_ground_speed = self_ground_speed
+                    self.self_air_speed = self_air_speed
+                    self.knockback_speed = knockback_speed
+                    self.hitlag_remaining = hitlag_remaining
+                    self.animation_index = animation_index
 
                 @classmethod
                 def _parse(cls, stream):
@@ -497,6 +514,29 @@ class Frame(Base):
                     except EOFError:
                         (flags, hit_stun, airborne, ground, jumps, l_cancel) = [None] * 6
 
+                    try: # v2.1.0
+                        (hurtbox_status,) = unpack('B', stream)
+                    except EOFError:
+                        hurtbox_status = None
+
+                    try: # v3.5.0
+                        (self_air_x, self_y, kb_x, kb_y, self_ground_x) = unpack('fffff', stream)
+                        self_ground_speed = Velocity(self_ground_x, self_y)
+                        self_air_speed = Velocity(self_air_x, self_y)
+                        knockback_speed = Velocity(kb_x, kb_y)
+                    except EOFError:
+                        (self_ground_speed, self_air_speed, knockback_speed) = [None] * 3
+
+                    try: # v3.8.0
+                        (hitlag_remaining,) = unpack('f', stream)
+                    except EOFError:
+                        hitlag_remaining = None
+
+                    try: # v3.11.0
+                        (animation_index,) = unpack('I', stream)
+                    except EOFError:
+                        animation_index = None
+
                     return cls(
                         character=sid.InGameCharacter(character),
                         state=try_enum(sid.ActionState, state),
@@ -514,7 +554,13 @@ class Frame(Base):
                         airborne=airborne,
                         ground=ground,
                         jumps=jumps,
-                        l_cancel=l_cancel)
+                        l_cancel=l_cancel,
+                        hurtbox_status=hurtbox_status,
+                        self_ground_speed=self_ground_speed,
+                        self_air_speed=self_air_speed,
+                        knockback_speed=knockback_speed,
+                        hitlag_remaining=hitlag_remaining,
+                        animation_index=animation_index)
 
 
     class Item(Base):
@@ -699,6 +745,11 @@ class Velocity(Base):
         if not isinstance(other, self.__class__):
             return NotImplemented
         return self.x == other.x and self.y == other.y
+
+    def __add__(self, other):
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+        return Velocity(self.x + other.x, self.y + other.y)
 
     def __repr__(self):
         return '(%.2f, %.2f)' % (self.x, self.y)
@@ -920,3 +971,8 @@ class StateFlags(IntFlag):
     SLEEP = 2**36
     DEAD = 2**38
     OFF_SCREEN = 2**39
+
+class Hurtbox(IntEnum):
+    VULNERABLE = 0
+    INVULNERABLE = 1
+    INTANGIBLE = 2
