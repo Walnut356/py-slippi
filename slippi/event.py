@@ -5,7 +5,8 @@ from typing import Optional, Sequence, Tuple, Union, List
 from . import id as sid
 from .util import *
 
-# The first frame of the game is indexed -123, counting up to zero (which is when the word "GO" appears). But since players actually get control before frame zero (!!!), we need to record these frames.
+# The first frame of the game is indexed -123, counting up to zero (which is when the word "GO" appears).
+# But since players actually get control before frame zero (!!!), we need to record these frames.
 FIRST_FRAME_INDEX = -123
 
 
@@ -36,8 +37,8 @@ class Start(Base):
     is_ranked: Optional[bool]
     game_number: Optional[int] #: `added(3.14.0)` The game number for consecutive games
 
-    def __init__(self, is_teams: bool, players: Tuple[Optional[Start.Player]], random_seed: int, slippi: Start.Slippi, stage: sid.Stage, 
-                 is_pal: Optional[bool] = None, is_frozen_ps: Optional[bool] = None, 
+    def __init__(self, is_teams: bool, players: Tuple[Optional[Start.Player]], random_seed: int, slippi: Start.Slippi, stage: sid.Stage,
+                 is_pal: Optional[bool] = None, is_frozen_ps: Optional[bool] = None,
                  match_id: Optional[str] = None, game_number: Optional[int] = None,):
         self.is_teams = is_teams
         self.players = players
@@ -117,7 +118,7 @@ class Start(Base):
         # v3.14.0
         stream.read(283)
 
-        try: 
+        try:
             (match_id,) = unpack('50s', stream)
             match_id = str(match_id.decode('utf-8')).rstrip('\x00')
         except EOFError: match_id = None
@@ -362,7 +363,7 @@ class Frame(Base):
 
 
             class Pre(Base):
-                """Pre-frame update data, required to reconstruct a replay. Information is collected right before 
+                """Pre-frame update data, required to reconstruct a replay. Information is collected right before
                 controller inputs are used to figure out the character's next action."""
 
                 __slots__ = 'state', 'position', 'facing_direction', 'joystick', 'cstick', 'triggers', 'buttons',\
@@ -425,10 +426,10 @@ class Frame(Base):
                 Information is collected at the end of collision detection, which is the last consideration of the game engine."""
 
                 __slots__ = ('character', 'state', 'position', 'facing_direction', 'percent', 'shield_size', 'stocks_remaining',
-                'most_recent_hit', 'last_hit_by', 'combo_count', 'state_age', 'flags', 'is_in_hitstun','is_airborne', 'last_ground_id',
+                'most_recent_hit', 'last_hit_by', 'combo_count', 'state_age', 'flags', 'maybe_hitstun_remaining','is_airborne', 'last_ground_id',
                 'jumps_remaining', 'l_cancel')
 
-                character: sid.InGameCharacter #: In-game character (can only change for Zelda/Sheik). Check on first frame to determine if Zelda started as Sheik
+                character: sid.InGameCharacter #: In-game character (can only change for Zelda/Sheik).
                 state: Union[sid.ActionState, int] #: Character's action state
                 position: Position #: Character's position
                 facing_direction: Direction #: Direction the character is facing
@@ -440,7 +441,7 @@ class Frame(Base):
                 combo_count: int #: Combo count as defined by the game
                 state_age: Optional[float] #: `added(0.2.0)` Number of frames action state has been active. Can have a fractional component for certain actions
                 flags: Optional[StateFlags] #: `added(2.0.0)` State flags
-                is_in_hitstun: Optional[float] # hitstun boolean
+                maybe_hitstun_remaining: Optional[float] # hitstun boolean
                 is_airborne: Optional[bool] #: `added(2.0.0)` True if character is airborne
                 last_ground_id: Optional[int] #: `added(2.0.0)` ID of ground character is standing on, if any
                 jumps_remaining: Optional[int] #: `added(2.0.0)` Jumps remaining
@@ -467,7 +468,7 @@ class Frame(Base):
                     self.combo_count = combo_count
                     self.state_age = state_age
                     self.flags = flags
-                    self.is_in_hitstun = hit_stun
+                    self.maybe_hitstun_remaining = hit_stun
                     self.is_airborne = airborne
                     self.last_ground_id = ground
                     self.jumps_remaining = jumps
@@ -537,8 +538,8 @@ class Frame(Base):
 
 
         def __init__(self, type: sid.Item, state: int, direction: Direction, velocity: Velocity, position: Position,
-                     damage: int, timer: int, spawn_id: int, missile_type: int, turnip_type: sid.TurnipFace, is_shot_launched: bool, charge_power: int,
-                     owner: int):
+                     damage: int, timer: int, spawn_id: int, missile_type: int, turnip_type: sid.TurnipFace, is_shot_launched: bool,
+                     charge_power: int, owner: int):
             self.type = type
             self.state = state
             self.direction = direction

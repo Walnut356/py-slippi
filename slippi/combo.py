@@ -88,8 +88,8 @@ class ComboState(Base):
     combo: Optional[ComboData]
     move: MoveLanded
     reset_counter: int
-    last_hit_animation: int
-    event: ComboEvent
+    last_hit_animation: Optional[int]
+    event: Optional[ComboEvent]
     
     def __init__(self):
         self.combo = ComboData()
@@ -101,12 +101,9 @@ class ComboState(Base):
 class ComboComputer(ComputerBase):
     """Base class for parsing combo events, call .prime_replay(path) to set up the instance,
     and .combo_compute(connect_code) to populate the computer's .combos list. """
-    rules: Optional[Start]
+
     combos: List[ComboData]
-    players: List
-    all_frames: List[Frame]
     combo_state: Optional[ComboState]
-    metadata: Optional[Metadata]
     queue: List[Dict]
     replay_path: Path
 

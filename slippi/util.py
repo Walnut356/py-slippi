@@ -1,5 +1,4 @@
 import enum, os, re, struct, sys
-from typing import Tuple
 
 from .log import log
 
@@ -32,11 +31,11 @@ def _format(obj):
         return str(obj)
 
 
-def try_enum(enum, val):
+def try_enum(enum_type, val):
     try:
-        return enum(val)
+        return enum_type(val)
     except ValueError:
-        log.info('unknown %s: %s' % (enum.__name__, val))
+        log.info('unknown %s: %s' % (enum_type.__name__, val))
         return val
 
 

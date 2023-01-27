@@ -1,4 +1,4 @@
-from typing import List, Optional, Union, Tuple, Dict
+from typing import Any, Optional
 from os import PathLike
 from enum import Enum
 
@@ -12,10 +12,10 @@ from .metadata import Metadata
 class ComputerBase(Base):
 
     rules: Optional[Start]
-    players: List[Metadata.Player]
-    all_frames: List[Frame]
+    players: list[Metadata.Player]
+    all_frames: list[Frame]
     metadata: Optional[Metadata]
-    queue: List[Dict]
+    queue: list[dict]
     replay_path: PathLike | str
 
     def prime_replay(self, replay: PathLike | Game | str, retain_data=False) -> None:
@@ -24,31 +24,36 @@ class ComputerBase(Base):
         if isinstance(replay, PathLike) or isinstance(replay, str):
             parsed_replay = Game(replay)
             self.replay_path = replay
-        if isinstance(replay, Game):
+        elif isinstance(replay, Game):
             parsed_replay = replay
             self.replay_path = ""
+        else:
+            raise TypeError("prime_replay accepts only PathLikes, strings, and Game objects.")
 
         self.rules = parsed_replay.start
         self.players = [player for player in parsed_replay.metadata.players if player is not None]
-        # if len(self.players) > 2: raise Exception("Combo compute handles replays with a maximum of 2 players")
         self.all_frames = parsed_replay.frames
         self.metadata = parsed_replay.metadata
-        
+
+            
         if not retain_data:
             self.reset_data()
 
-    def generate_player_ports(self, connect_code=None) -> List | Tuple:
+    def generate_player_ports(self, connect_code=None) -> Any: #type hint here is really annoying
+        player_port = -1
+        opponent_port = -1
         if connect_code:
             for i, player in enumerate(self.players):
                 if player.connect_code == connect_code.upper():
-                    player_port = [i]
+                    player_port = i
                 else:
                     opponent_port = i
-            return player_port, opponent_port
+            if player_port == opponent_port: return []
+            return [[player_port], opponent_port]
         else:
         # If there's no connect code, extract the port values of both *active* ports
             player_ports = [i - 1 for i, x in enumerate(self.rules.players) if x is not None]
-        # And if there's more than 2 active ports, we return an empty list which should skip processing. 
+        # And if there's more than 2 active ports, we return an empty list which should skip processing.
         # TODO make this an exception, but one that doesn't kill the program? Or just some way to track which replays don't get processed
             if len(player_ports) > 2:
                 return []
@@ -165,7 +170,7 @@ def is_ledge_action(action_state: int):
     """Recieves action state, returns whether or not player is currently hanging from the ledge, or doing any ledge action."""
     return ActionRange.LEDGE_ACTION_START <= action_state <= ActionRange.LEDGE_ACTION_END
 
-def is_wavedashing(action_state: int, port:int,  frame_index: int, all_frames: List[Frame]) -> bool:
+def is_wavedashing(action_state: int, port:int,  frame_index: int, all_frames: list[Frame]) -> bool:
     if action_state != ActionState.ESCAPE_AIR:
         return False
     for i in range(1, 4):
@@ -199,7 +204,7 @@ class TechType(Enum):
     MISSED_CEILING_TECH = 9
     JAB_RESET = 10
 
-def get_tech_type(action_state: int, direction) -> TechType:
+def get_tech_type(action_state: int, direction) -> TechType | None:
     match action_state:
         case ActionState.PASSIVE | ActionState.DOWN_STAND_U | ActionState.DOWN_STAND_D:
             return TechType.TECH_IN_PLACE
@@ -223,8 +228,37 @@ def get_tech_type(action_state: int, direction) -> TechType:
             return TechType.CEILING_TECH
         case _:
             return None
-    
+
+class JoystickRegion(Enum):
+    DZ = 0
+    NE = 1
+    SE = 2
+    SW = 3
+    NW = 4
+    N = 5
+    E = 6
+    S = 7
+    W = 8
 
 
-        
-        
+def get_joystick_region(stick_x: float, stick_y: float) -> JoystickRegion:
+    region = JoystickRegion.DZ
+
+    if (stick_x >= 0.2875 and stick_y >= 0.2875):
+        region = JoystickRegion.NE
+    elif (stick_x >= 0.2875 and stick_y <= -0.2875):
+        region = JoystickRegion.SE
+    elif (stick_x <= -0.2875 and stick_y <= -0.2875):
+        region = JoystickRegion.SW
+    elif (stick_x <= -0.2875 and stick_y >= 0.2875):
+        region = JoystickRegion.NW
+    elif (stick_y >= 0.2875):
+        region = JoystickRegion.N
+    elif (stick_x >= 0.2875):
+        region = JoystickRegion.E
+    elif (stick_y <= -0.2875):
+        region = JoystickRegion.S
+    elif (stick_x <= -0.2875):
+        region = JoystickRegion.W
+
+    return region
