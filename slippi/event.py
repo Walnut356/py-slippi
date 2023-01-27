@@ -36,10 +36,11 @@ class Start(Base):
     match_id: Optional[str] #: `added(3.14.0)` Mode (ranked/unranked) and time the match started
     is_ranked: Optional[bool]
     game_number: Optional[int] #: `added(3.14.0)` The game number for consecutive games
+    tiebreak_number: Optional[int]
 
     def __init__(self, is_teams: bool, players: Tuple[Optional[Start.Player]], random_seed: int, slippi: Start.Slippi, stage: sid.Stage,
-                 is_pal: Optional[bool] = None, is_frozen_ps: Optional[bool] = None,
-                 match_id: Optional[str] = None, game_number: Optional[int] = None,):
+                 is_pal: Optional[bool] = None, is_frozen_ps: Optional[bool] = None, match_id: Optional[str] = None,
+                 game_number: Optional[int] = None, tiebreak_number: Optional[int] = None):
         self.is_teams = is_teams
         self.players = players
         self.random_seed = random_seed
@@ -51,6 +52,7 @@ class Start(Base):
         if match_id:
             self.is_ranked = match_id[5] == "r" #it's lazy, but it seems like a waste to import regex for this
         self.game_number = game_number
+        self.tiebreak_number = tiebreak_number
 
     @classmethod
     def _parse(cls, stream):
@@ -124,8 +126,11 @@ class Start(Base):
         except EOFError: match_id = None
 
         stream.read(1)
-        try: (game_number,) = unpack('i', stream)
+        try: (game_number,) = unpack('I', stream)
         except EOFError: game_number = None
+
+        try: (tiebreak_number,) = unpack('I', stream)
+        except EOFError: tiebreak_number = None
 
         return cls(
             is_teams=is_teams,
@@ -136,7 +141,8 @@ class Start(Base):
             is_pal=is_pal,
             is_frozen_ps=is_frozen_ps,
             match_id=match_id,
-            game_number=game_number,)
+            game_number=game_number,
+            tiebreak_number=tiebreak_number)
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
