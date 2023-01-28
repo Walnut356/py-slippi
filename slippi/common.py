@@ -3,9 +3,9 @@ from os import PathLike
 from enum import Enum
 
 from .game import Game
-from .event import Frame, StateFlags, Start, Velocity
+from .event import Frame, Position, StateFlags, Start, Velocity
 from .id import ActionState, ActionRange, Stage
-from .util import Base
+from .util import *
 from .metadata import Metadata
 
 
@@ -52,7 +52,7 @@ class ComputerBase(Base):
             return [[player_port], opponent_port]
         else:
         # If there's no connect code, extract the port values of both *active* ports
-            player_ports = [i - 1 for i, x in enumerate(self.rules.players) if x is not None]
+            player_ports = [i for i, x in enumerate(self.rules.players) if x is not None]
         # And if there's more than 2 active ports, we return an empty list which should skip processing.
         # TODO make this an exception, but one that doesn't kill the program? Or just some way to track which replays don't get processed
             if len(player_ports) > 2:
@@ -71,6 +71,19 @@ class ComputerBase(Base):
 
 
 # Action state ranges are listed in id.py
+
+def just_entered_state(action_state: int, curr: Frame.Port.Data | int, prev: Frame.Port.Data | int) -> bool:
+    # TODO test this
+    """Accepts state or frame, or post-frame"""
+    for frame in [curr, prev]:
+        if isinstance(frame, Frame.Port.Data):
+            frame = frame.post.state
+        if isinstance(frame, Frame.Port.Data.Post):
+            frame = frame.state
+        if isinstance(frame, int):
+            pass
+
+    return curr == action_state and prev != action_state
 
 def is_damaged(action_state: int) -> bool:
     """Recieves action state, returns whether or not the player is in a damaged state.
@@ -229,37 +242,40 @@ def get_tech_type(action_state: int, direction) -> TechType | None:
         case _:
             return None
 
-class JoystickRegion(Enum):
-    DZ = 0
-    NE = 1
-    SE = 2
-    SW = 3
-    NW = 4
-    N = 5
-    E = 6
-    S = 7
-    W = 8
+class JoystickRegion(IntEnum):
+    """Deadzone is -1, directions start at 1. Cardinals are even, diagonals are odd"""
+    DEAD_ZONE = -1
+    UP = 0
+    UP_RIGHT = 1
+    RIGHT = 2
+    DOWN_RIGHT = 3
+    DOWN = 4
+    DOWN_LEFT = 5
+    LEFT = 6
+    UP_LEFT = 7
 
 
-def get_joystick_region(stick_x: float, stick_y: float) -> JoystickRegion:
-    region = JoystickRegion.DZ
+def get_joystick_region(stick_position: Position) -> JoystickRegion:
+    region = JoystickRegion.DEAD_ZONE
+
+    stick_x, stick_y = stick_position.x, stick_position.y
 
     if (stick_x >= 0.2875 and stick_y >= 0.2875):
-        region = JoystickRegion.NE
+        region = JoystickRegion.UP_RIGHT
     elif (stick_x >= 0.2875 and stick_y <= -0.2875):
-        region = JoystickRegion.SE
+        region = JoystickRegion.DOWN_RIGHT
     elif (stick_x <= -0.2875 and stick_y <= -0.2875):
-        region = JoystickRegion.SW
+        region = JoystickRegion.DOWN_LEFT
     elif (stick_x <= -0.2875 and stick_y >= 0.2875):
-        region = JoystickRegion.NW
+        region = JoystickRegion.UP_LEFT
     elif (stick_y >= 0.2875):
-        region = JoystickRegion.N
+        region = JoystickRegion.UP
     elif (stick_x >= 0.2875):
-        region = JoystickRegion.E
+        region = JoystickRegion.RIGHT
     elif (stick_y <= -0.2875):
-        region = JoystickRegion.S
+        region = JoystickRegion.DOWN
     elif (stick_x <= -0.2875):
-        region = JoystickRegion.W
+        region = JoystickRegion.LEFT
 
     return region
 
@@ -272,3 +288,4 @@ def get_total_velocity(player_frame_post: Frame.Port.Data.Post) -> Optional[Velo
         return player_frame_post.self_air_speed + player_frame_post.knockback_speed
     else:
         return player_frame_post.self_ground_speed + player_frame_post.knockback_speed
+

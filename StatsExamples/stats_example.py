@@ -1,8 +1,9 @@
 from pathlib import Path
+from math import isclose
 
 from slippi import *
 
-file = Path(r"Modern Replays/BADS#412 (Sheik) vs NUT#356 (Falco) on DL - 12-12-22 09.06pm .slp")
+file = Path(r"Modern Replays/ACTI#799 (Falcon) vs NUT#356 (Falco) on FoD - 12-15-22 02.06am .slp")
 
 replay = Game(file)
 
@@ -12,7 +13,12 @@ print(replay.start.is_ranked)
 thing = StatsComputer()
 thing.prime_replay(file)
 
-thing.dash_compute("NUT#356")
+thing.sdi_compute()
 
-print(len(thing.dash_compute("NUT#356")))
+print(len(thing.sdis))
 
+dist = [sdi for sdi in thing.sdis if not isclose(sdi.distance(), 0, rel_tol=.01)]
+
+starend = [sdi for sdi in thing.sdis if sdi.start_position != sdi.end_position]
+
+print(dist == starend)

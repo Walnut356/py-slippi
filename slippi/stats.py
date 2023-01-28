@@ -1,5 +1,5 @@
 from typing import Optional
-from math import atan2, degrees
+from math import atan2, degrees, dist
 
 from .util import Base, try_enum
 from .id import ActionState
@@ -88,15 +88,82 @@ class TechState(Base):
         self.tech = TechData(port, connect_code)
         self.last_state = None
 
+class SDIData(Base):
+    port: int
+    connect_code: Optional[str]
+    last_hit_by: Optional[int]
+    grounded: Optional[bool]
+    hitlag_frames: Optional[int]
+    stick_regions_during_hitlag: list[JoystickRegion]
+    sdi_inputs: list[JoystickRegion]
+    asdi: Optional[float]
+    start_position: Optional[Position]
+    end_position: Optional[Position]
+
+    def __init__(self, port, connect_code:Optional[str]=None):
+        self.port = port
+        self.connect_code = connect_code
+        self.last_hit_by = None
+        self.grounded = None
+        self.hitlag_frames = 0
+        self.stick_regions_during_hitlag = []
+        self.sdi_inputs = []
+        self.asdi = None
+        self.start_position = None
+        self.start_position = None
+    
+    def find_valid_sdi(self):
+        for i, stick_region in enumerate(self.stick_regions_during_hitlag):
+            # Obviously the first stick position and any deadzone input cannot be SDI inputs so we skip those
+            if i == 0: continue
+            if stick_region == JoystickRegion.DEAD_ZONE: continue
+
+            prev_stick_region = self.stick_regions_during_hitlag[i-1]
+
+            # If we haven't changed regions, it can't be an SDI input
+            if stick_region == prev_stick_region:
+                continue
+
+            # Any time we leave the deadzone though, the input counts
+            if prev_stick_region == JoystickRegion.DEAD_ZONE:
+                self.sdi_inputs.append(stick_region)
+                continue
+
+            # Joystick region cardinals are stored as odd numbers, diagonals are even
+            # Cardinal -> Any region will result in a second SDI input
+            if prev_stick_region % 2 == 0:
+                # TODO make sure cardinal -> cardinal still registers
+                self.sdi_inputs.append(stick_region)
+                continue
+            
+            # Diagonal -> cardinal will NOT result in a second SDI input unless the cardinal borders the opposite quadrant
+            if prev_stick_region % 2 == 1:
+                if stick_region % 2 == 1:
+                    self.sdi_inputs.append(stick_region)
+                # HACK there's probably less stupid way to do this, but I checked and for any valid diagonal->cadinal (DR->L, UL->D, etc.)
+                # the absolute value of the difference between the 2 (order doesn't matter) is always 3 or 5 so this literally works
+                elif 3 <= abs(stick_region - prev_stick_region) < 7:
+                        self.sdi_inputs.append(stick_region)
+                continue
+
+    def change_in_position(self) -> tuple:
+        return self.start_position - self.end_position
+    
+    def distance(self) -> float:
+        return dist(self.end_position, self.start_position)
+                
+
 class Data(Base):
     wavedashes: list[WavedashData]
     dashes: list[DashData]
     techs: list[TechData]
+    sdis: list[SDIData]
 
     def __init__(self):
         self.wavedashes = []
         self.dashes = []
         self.techs = []
+        self.sdis = []
 
 
 
@@ -105,24 +172,29 @@ class StatsComputer(ComputerBase):
     data: Data
     tech_state: Optional[TechState]
     dash_state: Optional[DashState]
-    
+    sdi_state: Optional[SDIData]
+
     def __init__(self):
         self.data = Data()
         self.tech_state = None
         self.dash_state = None
+        self.sdi_state = None
 
     def reset_data(self):
         self.wavedashes = []
         self.dashes = []
         self.techs = []
+        self.sdis = []
 
-    def stats_compute (self, connect_code: str, wavedash=True, dash=True, tech=True):
+    def stats_compute (self, connect_code: str, wavedash=True, dash=True, tech=True, sdi=True):
         if wavedash:
             self.wavedash_compute(connect_code)
         if dash:
             self.dash_compute(connect_code)
         if tech:
             self.tech_compute(connect_code)
+        if sdi:
+            self.sdi_compute(connect_code)
 
     def wavedash_compute(self, connect_code:Optional[str]=None) -> list[WavedashData]:
         player_ports: list[int]
@@ -303,22 +375,56 @@ class StatsComputer(ComputerBase):
         return self.data.techs
 
 
-    # def sdi_compute(self, connect_code:str):
-    #     player_ports: list[int]
-    #     opponent_port: int
+    def sdi_compute(self, connect_code: Optional[str]=None):
+        player_ports: list[int]
+        opponent_port: int
         
-    #     if connect_code:
-    #             player_ports, opponent_port = self.generate_player_ports(connect_code)
-    #     else:
-    #         player_ports = self.generate_player_ports()
+        if connect_code:
+                player_ports, opponent_port = self.generate_player_ports(connect_code)
+        else:
+            player_ports = self.generate_player_ports()
 
-    #     for port_index, player_port in enumerate(player_ports):
-    #         if len(player_ports) == 2:
-    #             opponent_port = player_ports[port_index - 1] # Only works for 2 ports
+        for port_index, player_port in enumerate(player_ports):
+            if len(player_ports) == 2:
+                opponent_port = player_ports[port_index - 1] # Only works for 2 ports
 
-    #         for i, frame in enumerate(self.all_frames):
-    #             player_frame = self.port_frame(player_port, frame)
+            for i, frame in enumerate(self.all_frames):
+                player_frame = self.port_frame(player_port, frame)
+                prev_player_frame = self.port_frame_by_index(player_port, i - 1)
+                opponent_frame = self.port_frame(opponent_port, frame)
+
+                # right now i don't care about shield SDI/ASDI but i may change this down the line
+                # it requires slightly different logic and modification of the sdidata class
+                in_hitlag = is_in_hitlag(player_frame.post.flags) and not is_shielding(prev_player_frame.post.state)
+                was_in_hitlag = is_in_hitlag(prev_player_frame.post.flags) and not is_shielding(prev_player_frame.post.state)
 
 
-    #             if player_frame.post:
-    #                 pass
+                if not in_hitlag:
+                    if was_in_hitlag:
+                        self.sdi_state.end_position = prev_player_frame.post.position
+                        self.sdi_state.last_hit_by = try_enum(Attack, opponent_frame.post.most_recent_hit)
+                        
+                        stick = get_joystick_region(player_frame.pre.cstick)
+                        if stick != JoystickRegion.DEAD_ZONE:
+                            self.sdi_state.asdi = stick
+                        else:
+                            self.sdi_state.asdi = get_joystick_region(player_frame.pre.joystick)
+                        
+                        self.sdi_state.find_valid_sdi()
+                        
+                        self.sdis.append(self.sdi_state)
+                    continue
+
+                if not was_in_hitlag:
+                    self.sdi_state = SDIData(player_port, self.metadata.players[player_port].connect_code)
+                    self.sdi_state.start_position = player_frame.post.position
+                    self.sdi_state.grounded = not player_frame.post.is_airborne
+                    
+                self.sdi_state.stick_regions_during_hitlag.append(get_joystick_region(player_frame.pre.joystick))
+                self.sdi_state.hitlag_frames += 1
+
+            
+
+                
+                
+                    
