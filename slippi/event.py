@@ -167,9 +167,25 @@ class Start(Base):
             return cls(cls.Version(*unpack('BBBB', stream)))
 
         def __eq__(self, other):
-            if not isinstance(other, self.__class__):
-                return NotImplemented
-            return self.version == other.version
+            if isinstance(other, self.__class__):
+                return self.version == other.version
+
+            if isinstance(other, str) or isinstance(other, Start.Slippi.Version):
+                return self.version == other
+    
+            raise NotImplementedError("Incorrect type for comparison to event.Start.Slippi, accepted types are event.Start.Slippi, event.Start.Slippi.Version, and str")
+        
+        def __ge__(self, other: Start.Slippi | Start.Slippi.Version | str):
+            if isinstance(other, self.__class__):
+                return self.version >= other.version
+
+            if isinstance(other, str) or isinstance(other, Start.Slippi.Version):
+                return self.version >= other
+    
+            raise NotImplementedError("Incorrect type for comparison to event.Start.Slippi, accepted types are event.Start.Slippi, event.Start.Slippi.Version, and str")
+        
+        def __lt__(self, other: Start.Slippi | Start.Slippi.Version | str):
+            return not self.__ge__(other)
 
 
         class Version(Base):
@@ -187,10 +203,42 @@ class Start(Base):
             def __repr__(self):
                 return '%d.%d.%d' % (self.major, self.minor, self.revision)
 
-            def __eq__(self, other):
-                if not isinstance(other, self.__class__):
-                    return NotImplemented
-                return self.major == other.major and self.minor == other.minor and self.revision == other.revision
+            def __eq__(self, other: Start.Slippi.Version | str ):
+                if isinstance(other, self.__class__):
+                    return self.major == other.major and self.minor == other.minor and self.revision == other.revision
+
+                if isinstance(other, str):
+                    major, minor, revision = [int(n) for n in other.split(".", 2)]
+                    return self.major == major and self.minor == minor and self.revision == revision
+
+                raise NotImplementedError("Incorrect type for comparison to event.Start.Slippi, accepted types are event.Start.Slippi, event.Start.Slippi.Version, and str")
+            
+            def __ge__(self, other: Start.Slippi.Version | str ):
+                if isinstance(other, self.__class__):
+                    # Can't rely on short circuiting, example: 2.11.0 would evaluate as greater than 3.9.0, so we need a smarter check
+                    if self.major > other.major:
+                        return True
+                    if self.major == other.major:
+                        if self.minor > other.minor:
+                             return True
+                        if self.minor == other.minor:
+                            if self.revision >= other.revision:
+                                return True
+                    return False
+
+                if isinstance(other, str):
+                    major, minor, revision = [int(n) for n in other.split(".", 2)]
+                    if self.major > major:
+                        return True
+                    if self.major == major:
+                        if self.minor > minor:
+                             return True
+                        if self.minor == minor:
+                            if self.revision >= revision:
+                                return True
+                    return False
+                
+                raise NotImplementedError("Incorrect type for comparison to event.Start.Slippi, accepted types are event.Start.Slippi, event.Start.Slippi.Version, and str")
 
 
     class Player(Base):
@@ -552,7 +600,7 @@ class Frame(Base):
                         damage=damage,
                         shield=shield,
                         stocks=stocks,
-                        most_recent_hit=try_enum(Attack, last_attack_landed) if last_attack_landed else None,
+                        most_recent_hit=try_enum(Attack, last_attack_landed),
                         last_hit_by=last_hit_by if last_hit_by < 4 else None,
                         combo_count=combo_count,
                         flags=flags,
@@ -732,6 +780,20 @@ class Position(Base):
         if not isinstance(other, self.__class__):
             return NotImplemented
         return self.x == other.x and self.y == other.y
+    
+    def __sub__(self, other):
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+        return (self.x - other.x, self.y - other.y)
+    
+    def __add__(self, other):
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+        return (self.x + other.x, self.y + other.y)
+    
+    def __iter__(self):
+        for val in [self.x, self.y]:
+            yield val
 
     def __repr__(self):
         return '(%.2f, %.2f)' % (self.x, self.y)
