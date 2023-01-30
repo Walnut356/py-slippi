@@ -1,4 +1,5 @@
 from __future__ import annotations
+from enum import IntFlag
 
 from typing import Optional, Sequence, Tuple, Union, List
 
