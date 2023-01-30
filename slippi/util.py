@@ -88,9 +88,10 @@ class IntEnum(enum.IntEnum):
 
 
 class IntFlag(enum.IntFlag):
-    def __repr__(self):
-        members, _ = enum._decompose(self.__class__, self._value_)
-        return '%s:%s' % (bin(self._value_), '|'.join([str(m._name_ or m._value_) for m in members]))
+    pass
+    # def __repr__(self):
+    #     members, _ = enum._decompose(self.__class__, self._value_)
+    #     return '%s:%s' % (bin(self._value_), '|'.join([str(m._name_ or m._value_) for m in members]))
 
 
 class EOFError(IOError):

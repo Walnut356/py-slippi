@@ -7,24 +7,39 @@ from .event import Position, Buttons, Direction, Attack
 from .common import *
 
 class WavedashData(Base):
-    port: int
+    physical_port: int
     connect_code: Optional[str]
     r_frame: int # which airborne frame was the airdodge input on?
-    angle: float # in degrees
+    angle: Optional[float] # in degrees
     airdodge_frames: int
     waveland: bool
+    direction: Optional[Direction]
 
-    def __init__(self, port, connect_code:Optional[str], r_input_frame:int=0, angle:Optional[Position]=None, airdodge_frames:int=0):
-        self.port = port
+    def __init__(self, port, connect_code:Optional[str], r_input_frame:int=0, stick:Optional[Position]=None, airdodge_frames:int=0):
+        self.physical_port = port + 1
         self.r_frame = r_input_frame
-        if angle:
+        if stick:
             # atan2 converts coordinates to degrees without losing information (tan quadrent 1 and 3 are both positive)
-            self.angle = degrees(atan2(angle.y, angle.x))
-            # then we need to normalize the values to degrees-below-horizontal
-            #TODO track # of left and right wavedashes, angle by direction, but still output normalized
-            self.angle = self.angle + 180 if self.angle < -90 else self.angle + 90
+            self.angle = get_angle(stick)
+            # then we need to normalize the values to degrees-below-horizontal and assign a direction
+            if self.angle < -90 and self.angle > -180:
+                self.angle += 180
+                self.direction = Direction.LEFT
+            if self.angle > -90 and self.angle < 0:
+                self.angle += 90
+                self.direction = Direction.RIGHT
+            if self.angle == 180 or self.angle == -180:
+                self.angle = 0
+                self.direction = Direction.LEFT
+            if self.angle == 0:
+                self.direction = Direction.RIGHT
+            if self.angle == -90:
+                self.angle = 90
+                self.direction = Direction.DOWN
+
         else:
-            self.angle = 0
+            self.angle = None
+            self.direction = None
         self.airdodge_frames = airdodge_frames
         self.waveland = True
 
@@ -32,7 +47,7 @@ class WavedashData(Base):
         return self.r_frame + self.airdodge_frames
     
 class DashData(Base):
-    port: int
+    physical_port: int
     connect_code: Optional[str]
     start_pos: float
     end_pos: float
@@ -40,7 +55,7 @@ class DashData(Base):
     is_dashdance: bool
 
     def __init__(self, port, connect_code:Optional[str], start_pos=0, end_pos = 0):
-        self.port = port
+        self.physical_port = port + 1
         self.connect_code = connect_code
         self.start_pos = start_pos
         self.end_pos = end_pos
@@ -59,7 +74,7 @@ class DashState(Base):
         self.active_dash = False
 
 class TechData(Base):
-    port: int
+    physical_port: int
     connect_code: Optional[str]
     tech_type: Optional[TechType]
     direction: Direction
@@ -72,7 +87,7 @@ class TechData(Base):
     last_hit_by: str
 
     def __init__(self, port, connect_code:Optional[str]=None):
-        self.port = port
+        self.physical_port = port + 1
         self.connect_code = connect_code
         self.tech_type = None
         self.is_missed_tech = False
@@ -88,20 +103,27 @@ class TechState(Base):
         self.tech = TechData(port, connect_code)
         self.last_state = None
 
-class SDIData(Base):
-    port: int
+class TakeHitData(Base):
+    physical_port: int
     connect_code: Optional[str]
     last_hit_by: Optional[int]
     grounded: Optional[bool]
+    crouch_cancel: Optional[bool]
     hitlag_frames: Optional[int]
     stick_regions_during_hitlag: list[JoystickRegion]
     sdi_inputs: list[JoystickRegion]
-    asdi: Optional[float]
+    asdi: Optional[JoystickRegion]
+    di_angle: Optional[float]
+    percent: Optional[float]
+    knockback_velocity: Optional[Velocity]
+    knockback_angle: Optional[float]
+    final_knockback_velocity: Optional[Velocity]
+    final_knockback_angle: Optional[float]
     start_position: Optional[Position]
     end_position: Optional[Position]
 
     def __init__(self, port, connect_code:Optional[str]=None):
-        self.port = port
+        self.physical_port = port + 1
         self.connect_code = connect_code
         self.last_hit_by = None
         self.grounded = None
@@ -115,8 +137,7 @@ class SDIData(Base):
     def find_valid_sdi(self):
         for i, stick_region in enumerate(self.stick_regions_during_hitlag):
             # Obviously the first stick position and any deadzone input cannot be SDI inputs so we skip those
-            if i == 0: continue
-            if stick_region == JoystickRegion.DEAD_ZONE: continue
+            if i == 0 or stick_region == JoystickRegion.DEAD_ZONE: continue
 
             prev_stick_region = self.stick_regions_during_hitlag[i-1]
 
@@ -142,6 +163,7 @@ class SDIData(Base):
                     self.sdi_inputs.append(stick_region)
                 # HACK there's probably less stupid way to do this, but I checked and for any valid diagonal->cadinal (DR->L, UL->D, etc.)
                 # the absolute value of the difference between the 2 (order doesn't matter) is always 3 or 5 so this literally works
+                # It should almost never happen though since you'd need to move 3 zones away inbetween frames
                 elif 3 <= abs(stick_region - prev_stick_region) < 7:
                         self.sdi_inputs.append(stick_region)
                 continue
@@ -151,50 +173,70 @@ class SDIData(Base):
     
     def distance(self) -> float:
         return dist(self.end_position, self.start_position)
+    
+
+class LCancelData(Base):
+    physical_port: Optional[int]
+    connect_code: Optional[str]
+    successful: int
+    failed: int
+
+    def __init__(self, port, connect_code:Optional[str]=None):
+        self.physical_port = port + 1
+        self.connect_code = connect_code
+        self.successful = 0
+        self.failed = 0
+    
+    def percentage(self):
+        return (self.successful/(self.successful + self.failed)) * 100
+    
                 
 
 class Data(Base):
-    wavedashes: list[WavedashData]
-    dashes: list[DashData]
-    techs: list[TechData]
-    sdis: list[SDIData]
+    wavedash: list[WavedashData]
+    dash: list[DashData]
+    tech: list[TechData]
+    take_hit: list[TakeHitData]
+    l_cancel: Optional[LCancelData]
 
     def __init__(self):
-        self.wavedashes = []
-        self.dashes = []
-        self.techs = []
-        self.sdis = []
+        self.wavedash = []
+        self.dash = []
+        self.tech = []
+        self.take_hit = []
+        self.l_cancel = None
 
 
 
 class StatsComputer(ComputerBase):
 
     data: Data
+    wavedash_state: Optional[WavedashData]
     tech_state: Optional[TechState]
     dash_state: Optional[DashState]
-    sdi_state: Optional[SDIData]
+    take_hit_state: Optional[TakeHitData]
 
     def __init__(self):
         self.data = Data()
+        self.wavedash_state = None
         self.tech_state = None
         self.dash_state = None
-        self.sdi_state = None
+        self.take_hit_state = None
 
     def reset_data(self):
-        self.wavedashes = []
-        self.dashes = []
-        self.techs = []
-        self.sdis = []
+        self.data = Data()
 
-    def stats_compute (self, connect_code: str, wavedash=True, dash=True, tech=True, sdi=True):
+    def stats_compute (self, connect_code: str, wavedash=True, dash=True, tech=True, take_hit=True, l_cancel=True):
         if wavedash:
             self.wavedash_compute(connect_code)
         if dash:
             self.dash_compute(connect_code)
         if tech:
             self.tech_compute(connect_code)
-        if sdi:
-            self.sdi_compute(connect_code)
+        if take_hit:
+            self.take_hit_compute(connect_code)
+        if l_cancel:
+            self.l_cancel_compute(connect_code)
 
     def wavedash_compute(self, connect_code:Optional[str]=None) -> list[WavedashData]:
         player_ports: list[int]
@@ -226,16 +268,17 @@ class StatsComputer(ComputerBase):
                     past_frame = self.port_frame_by_index(player_port, i - j)
                     if (Buttons.Physical.R in past_frame.pre.buttons.physical.pressed() or
                         Buttons.Physical.L in past_frame.pre.buttons.physical.pressed()):
-                        self.data.wavedashes.append(WavedashData(player_port, connect_code, 0, player_frame.pre.joystick, j))
+                        self.wavedash_state = WavedashData(player_port, connect_code, 0, player_frame.pre.joystick, j)
 
                         for k in range(0, 5):
                             past_frame = self.port_frame_by_index(player_port, i - j - k)
                             if past_frame.post.state == ActionState.KNEE_BEND:
-                                self.data.wavedashes[-1].r_frame = k
-                                self.data.wavedashes[-1].waveland = False
+                                self.wavedash_state.r_frame = k
+                                self.wavedash_state.waveland = False
                                 break
+                        self.data.wavedash.append(self.wavedash_state)
                         break
-        return self.data.wavedashes
+        return self.data.wavedash
     
     def dash_compute(self, connect_code:Optional[str]=None) -> list[DashData]:
         player_ports = None
@@ -274,7 +317,7 @@ class StatsComputer(ComputerBase):
                     if prev_player_state == ActionState.TURN and prev_prev_player_state == ActionState.DASH:
                         # if a dashdance pattern (dash -> turn -> dash) is detected, first we need to finalize and record the previous dash
                         self.dash_state.dash.end_pos = prev_prev_player_frame.post.position.x
-                        self.data.dashes.append(self.dash_state.dash)
+                        self.data.dash.append(self.dash_state.dash)
                         # then we need to create a new dash and update its information
                         self.dash_state.dash = DashData(player_port, connect_code)
                         self.dash_state.active_dash = True
@@ -287,10 +330,10 @@ class StatsComputer(ComputerBase):
                     if (self.dash_state.active_dash and
                         prev_player_state != ActionState.DASH and prev_prev_player_state != ActionState.DASH):
                         self.dash_state.dash.end_pos = prev_prev_player_frame.post.position.x
-                        self.data.dashes.append(self.dash_state.dash)
+                        self.data.dash.append(self.dash_state.dash)
                         self.dash_state.active_dash = False
                         self.dash_state.dash = DashData(player_port, connect_code)
-        return self.data.dashes
+        return self.data.dash
 
     def tech_compute(self, connect_code:Optional[str]=None) -> list[TechData]:
         player_ports: list[int]
@@ -319,7 +362,7 @@ class StatsComputer(ComputerBase):
             # Close out active techs if we were teching, and save some processing power if we weren't
                 if not curr_teching:
                     if was_teching:
-                        self.techs.append(self.tech_state.tech)
+                        self.data.tech.append(self.tech_state.tech)
                         self.tech_state = None
                     continue
 
@@ -372,15 +415,16 @@ class StatsComputer(ComputerBase):
                     
                     case _: # Tech in place, getup attack
                         pass
-        return self.data.techs
+        return self.data.tech
 
 
-    def sdi_compute(self, connect_code: Optional[str]=None):
+    def take_hit_compute(self, connect_code: Optional[str]=None) -> list[TakeHitData]:
         player_ports: list[int]
         opponent_port: int
         
         if connect_code:
-                player_ports, opponent_port = self.generate_player_ports(connect_code)
+            player_ports, opponent_port = self.generate_player_ports(connect_code)
+            self.did_win = self.is_winner(connect_code)
         else:
             player_ports = self.generate_player_ports()
 
@@ -401,29 +445,65 @@ class StatsComputer(ComputerBase):
 
                 if not in_hitlag:
                     if was_in_hitlag:
-                        self.sdi_state.end_position = prev_player_frame.post.position
-                        self.sdi_state.last_hit_by = try_enum(Attack, opponent_frame.post.most_recent_hit)
+                        self.take_hit_state.end_position = prev_player_frame.post.position
+                        self.take_hit_state.last_hit_by = try_enum(Attack, opponent_frame.post.most_recent_hit)
+                        self.take_hit_state.final_knockback_angle = get_angle(player_frame.post.knockback_speed)
+                        self.take_hit_state.di_angle = player_frame.pre.joystick
+                        self.take_hit_state.final_knockback_velocity = player_frame.post.knockback_speed
                         
                         stick = get_joystick_region(player_frame.pre.cstick)
                         if stick != JoystickRegion.DEAD_ZONE:
-                            self.sdi_state.asdi = stick
+                            self.take_hit_state.asdi = stick
                         else:
-                            self.sdi_state.asdi = get_joystick_region(player_frame.pre.joystick)
+                            self.take_hit_state.asdi = get_joystick_region(player_frame.pre.joystick)
                         
-                        self.sdi_state.find_valid_sdi()
+                        self.take_hit_state.find_valid_sdi()
                         
-                        self.sdis.append(self.sdi_state)
+                        self.data.take_hit.append(self.take_hit_state)
                     continue
 
                 if not was_in_hitlag:
-                    self.sdi_state = SDIData(player_port, self.metadata.players[player_port].connect_code)
-                    self.sdi_state.start_position = player_frame.post.position
-                    self.sdi_state.grounded = not player_frame.post.is_airborne
+                    self.take_hit_state = TakeHitData(player_port, self.metadata.players[player_port].connect_code)
+                    self.take_hit_state.start_position = player_frame.post.position
+                    self.take_hit_state.percent = player_frame.post.percent
+                    self.take_hit_state.grounded = not player_frame.post.is_airborne
+                    self.take_hit_state.knockback_velocity = player_frame.post.knockback_speed
+                    self.take_hit_state.knockback_angle = get_angle(player_frame.post.knockback_speed)
+                    if ActionRange.SQUAT_START <= prev_player_frame.post.state <= ActionRange.AERIAL_ATTACK_END:
+                        self.take_hit_state.crouch_cancel = True
+                    else:
+                        self.take_hit_state.crouch_cancel = False
                     
-                self.sdi_state.stick_regions_during_hitlag.append(get_joystick_region(player_frame.pre.joystick))
-                self.sdi_state.hitlag_frames += 1
+                self.take_hit_state.stick_regions_during_hitlag.append(get_joystick_region(player_frame.pre.joystick))
+                self.take_hit_state.hitlag_frames += 1
+        return self.data.take_hit
 
-            
+
+    def l_cancel_compute(self, connect_code: Optional[str]=None):
+        
+        player_ports: list[int]
+        opponent_port: int
+        
+        if connect_code:
+            player_ports, opponent_port = self.generate_player_ports(connect_code)
+            self.did_win = self.is_winner(connect_code)
+        else:
+            player_ports = self.generate_player_ports()
+
+        for port_index, player_port in enumerate(player_ports):
+            if len(player_ports) == 2:
+                opponent_port = player_ports[port_index - 1] # Only works for 2 ports
+            self.data.l_cancel = LCancelData(player_port, connect_code)
+
+            for i, frame in enumerate(self.all_frames):
+                player_frame = self.port_frame(player_port, frame)
+                opponent_frame = self.port_frame(opponent_port, frame)
+
+                match player_frame.post.l_cancel:
+                    case 0: continue
+                    case 1: self.data.l_cancel.successful += 1
+                    case 2: self.data.l_cancel.failed += 1
+
 
                 
                 

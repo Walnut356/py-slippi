@@ -1,6 +1,7 @@
 from typing import Any, Optional
 from os import PathLike
 from enum import Enum
+from math import degrees, atan2, tau
 
 from .game import Game
 from .event import Frame, Position, StateFlags, Start, Velocity
@@ -13,6 +14,8 @@ class ComputerBase(Base):
 
     rules: Optional[Start]
     players: list[Metadata.Player]
+    placements: Optional[list[int]]
+    did_win: Optional[bool]
     all_frames: list[Frame]
     metadata: Optional[Metadata]
     queue: list[dict]
@@ -34,12 +37,14 @@ class ComputerBase(Base):
         self.players = [player for player in parsed_replay.metadata.players if player is not None]
         self.all_frames = parsed_replay.frames
         self.metadata = parsed_replay.metadata
+        self.placements = parsed_replay.end.player_placements
+        self.did_win = None
 
             
         if not retain_data:
             self.reset_data()
 
-    def generate_player_ports(self, connect_code=None) -> Any: #type hint here is really annoying
+    def generate_player_ports(self, connect_code=None) -> Any: #difficult to express proper type hint
         player_port = -1
         opponent_port = -1
         if connect_code:
@@ -48,7 +53,7 @@ class ComputerBase(Base):
                     player_port = i
                 else:
                     opponent_port = i
-            if player_port == opponent_port: return []
+            if player_port == opponent_port: return [[], None]
             return [[player_port], opponent_port]
         else:
         # If there's no connect code, extract the port values of both *active* ports
@@ -59,15 +64,19 @@ class ComputerBase(Base):
                 return []
             return player_ports
         
-    def port_frame(self, port:int, frame: Frame):
+    def port_frame(self, port:int, frame: Frame) -> Frame.Port.Data:
         return frame.ports[port].leader
     
-    def port_frame_by_index(self, port: int, index: int):
+    def port_frame_by_index(self, port: int, index: int) -> Frame.Port.Data:
         return self.all_frames[index].ports[port].leader
     
     def reset_data(self):
         return
     
+    def is_winner(self, identifier: int | str) -> bool:
+        if isinstance(identifier, str):
+            identifier = self.generate_player_ports(identifier)[0][0]
+        return True if self.placements[identifier] == 0 else False
 
 
 # Action state ranges are listed in id.py
@@ -288,4 +297,15 @@ def get_total_velocity(player_frame_post: Frame.Port.Data.Post) -> Optional[Velo
         return player_frame_post.self_air_speed + player_frame_post.knockback_speed
     else:
         return player_frame_post.self_ground_speed + player_frame_post.knockback_speed
+    
+def get_angle(point: Velocity | Position):
+    return degrees(atan2(point.y, point.x))
 
+def max_di_angles(angle):
+        angles = [angle - 90, angle + 90]
+    
+        if angles[0] < 180:
+            angles[0] += 360
+        if angles[1] > 180:
+            angles[1] -= 360
+        return angles

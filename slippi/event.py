@@ -1,4 +1,5 @@
 from __future__ import annotations
+from enum import IntFlag
 
 from typing import Optional, Sequence, Tuple, Union, List
 
@@ -319,6 +320,7 @@ class End(Base):
 
     method: End.Method #: `changed(2.0.0)` How the game ended
     lras_initiator: Optional[int] #: `added(2.0.0)` Index of player that LRAS'd, if any
+    # Player placements stored as a list. The index represents the port, the value of that element is their placement.
     player_placements: Optional[List[int]] #: `added (3.13.0)` 0-indexed placement positions. -1 if player not in game
 
     def __init__(self, method: End.Method, lras_initiator: Optional[int] = None, player_placements: Optional[List[int]] = None):
@@ -826,6 +828,7 @@ class Velocity(Base):
 
 class Direction(IntEnum):
     LEFT = -1
+    DOWN = 0 # not used by slippi replay data, but useful for stats enumerations
     RIGHT = 1
 
 
