@@ -79,6 +79,7 @@ class ComputerBase(Base):
         return True if self.placements[identifier] == 0 else False
 
 
+
 # Action state ranges are listed in id.py
 
 def just_entered_state(action_state: int, curr: Frame.Port.Data | int, prev: Frame.Port.Data | int) -> bool:

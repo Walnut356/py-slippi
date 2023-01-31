@@ -153,7 +153,6 @@ class TakeHitData(Base):
             # Joystick region cardinals are stored as odd numbers, diagonals are even
             # Cardinal -> Any region will result in a second SDI input
             if prev_stick_region % 2 == 0:
-                # TODO make sure cardinal -> cardinal still registers
                 self.sdi_inputs.append(stick_region)
                 continue
             
@@ -355,7 +354,7 @@ class StatsComputer(ComputerBase):
                 prev_player_state = prev_player_frame.state
 
                 
-
+                #TODO logical error: false positive on raw walljump. Check if they were in walltech beforehand?
                 curr_teching = is_teching(player_state)
                 was_teching = is_teching(prev_player_state)
             
@@ -371,7 +370,8 @@ class StatsComputer(ComputerBase):
             # If we are, create a tech event, and start filling out fields based on the info we have
                 if not was_teching:
                     self.tech_state = TechState(player_port, connect_code)
-                    self.tech_state.tech.last_hit_by = try_enum(Attack, opponent_frame.most_recent_hit).name
+                    if opponent_frame.most_recent_hit:
+                        self.tech_state.tech.last_hit_by = try_enum(Attack, opponent_frame.most_recent_hit).name
                     self.tech_state.tech.position = player_frame.position
                     self.tech_state.tech.is_on_platform = player_frame.position.y > 5 # Arbitrary value, i'll have to fact check this
 
