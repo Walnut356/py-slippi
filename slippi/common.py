@@ -44,6 +44,7 @@ class ComputerBase(Base):
         if not retain_data:
             self.reset_data()
 
+    #FIXME the entry/return on this is dumb and I need to restructure it so it's useable anywhere outside of the stats calc
     def generate_player_ports(self, connect_code=None) -> Any: #difficult to express proper type hint
         player_port = -1
         opponent_port = -1
