@@ -38,6 +38,7 @@ class WavedashData(Base):
                 self.direction = Direction.DOWN
 
         else:
+            raise AttributeError("it's here")
             self.angle = None
             self.direction = None
         self.airdodge_frames = airdodge_frames
@@ -360,7 +361,7 @@ class StatsComputer(ComputerBase):
             
             # Close out active techs if we were teching, and save some processing power if we weren't
                 if not curr_teching:
-                    if was_teching:
+                    if was_teching and self.tech_state is not None:
                         self.data.tech.append(self.tech_state.tech)
                         self.tech_state = None
                     continue
@@ -473,7 +474,7 @@ class StatsComputer(ComputerBase):
                         self.take_hit_state.crouch_cancel = True
                     else:
                         self.take_hit_state.crouch_cancel = False
-                    
+                #TODO this failed during all_stats(), DF had 1872 entries.  file:'Modern Replays\\FATK#202 (Yoshi) vs NUT#356 (Falco) on YS - 12-21-22 11.43pm .slp'
                 self.take_hit_state.stick_regions_during_hitlag.append(get_joystick_region(player_frame.pre.joystick))
                 self.take_hit_state.hitlag_frames += 1
         return self.data.take_hit

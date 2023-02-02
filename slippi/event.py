@@ -9,6 +9,7 @@ from .util import *
 # The first frame of the game is indexed -123, counting up to zero (which is when the word "GO" appears).
 # But since players actually get control before frame zero (!!!), we need to record these frames.
 FIRST_FRAME_INDEX = -123
+PLAYER_CONTROL_INDEX = -39
 
 
 class EventType(IntEnum):
@@ -35,7 +36,7 @@ class Start(Base):
     is_pal: Optional[bool] #: `added(1.5.0)` True if this was a PAL version of Melee
     is_frozen_ps: Optional[bool] #: `added(2.0.0)` True if frozen Pokemon Stadium was enabled
     match_id: Optional[str] #: `added(3.14.0)` Mode (ranked/unranked) and time the match started
-    is_ranked: Optional[bool]
+    is_ranked: bool
     game_number: Optional[int] #: `added(3.14.0)` The game number for consecutive games
     tiebreak_number: Optional[int]
 
@@ -52,6 +53,8 @@ class Start(Base):
         self.match_id = match_id
         if match_id:
             self.is_ranked = match_id[5] == "r" #it's lazy, but it seems like a waste to import regex for this
+        else:
+            self.is_ranked = False
         self.game_number = game_number
         self.tiebreak_number = tiebreak_number
 
