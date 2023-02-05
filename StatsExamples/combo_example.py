@@ -16,7 +16,7 @@ def combo_from_file(file, connect_code: str) -> ComboComputer:
         if(
             c.minimum_length(5) and
             c.did_kill and
-            c.minimum_damage(40)):
+            c.minimum_damage(60)):
             
             replay.json_export(c)
     
@@ -44,11 +44,19 @@ if __name__ == '__main__':
     code_input = input("Please enter your connect code (TEST#123): ")
 
     print("Processing...")
-    # with os.scandir(replay_dir) as thing:
-    #     for entry in thing:
-    #         dolphin_queue["queue"].append(combo_from_file(os.path.join(replay_dir, entry.name), code_input))
-    
+    with os.scandir(replay_dir) as thing:
+        for entry in thing:
+            combos = combo_from_file(os.path.join(replay_dir, entry.name), code_input)
+            for c in combos:
+                dolphin_queue["queue"].append(c)
+            print(f"{entry.name} processed, {len(dolphin_queue["queue"])}")
 
-    multi_find_combos(replay_dir, code_input)
+    with open("py_clip_combos.json", "w") as write_file:
+        json.dump(dolphin_queue, write_file, indent=4)
+
+    print("Done")
+
+
+    # multi_find_combos(replay_dir, code_input)
 
 
