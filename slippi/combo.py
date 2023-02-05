@@ -193,10 +193,11 @@ class ComboComputer(ComputerBase):
                 # if the opponent has been hit and there's no "active" combo, start a new combo
                     if self.combo_state.combo is None:
                         self.combo_state.combo = ComboData()
-                        if self.players[player_port].connect_code:
-                            self.combo_state.combo.player = self.players[player_port].connect_code
-                        else:
-                            self.combo_state.combo.player = f"Port {player_port}"
+                        #FIXME errors out when parsing based on ports w/ genesis 9 console replays
+                        # if self.players[player_port].connect_code:
+                        #     self.combo_state.combo.player = self.players[player_port].connect_code
+                        # else:
+                        self.combo_state.combo.player = f"Port {player_port}"
                         self.combo_state.combo.moves = []
                         self.combo_state.combo.did_kill = False
                         self.combo_state.combo.player_stocks = player_frame.stocks_remaining
@@ -217,10 +218,11 @@ class ComboComputer(ComputerBase):
                     if opnt_damage_taken:
                         if self.combo_state.last_hit_animation is None:
                             self.combo_state.move = MoveLanded()
-                            if self.players[player_port].connect_code:
-                                self.combo_state.move.player = self.players[player_port].connect_code
-                            else:
-                                self.combo_state.move.player = f"Port {player_port}"
+                            #FIXME errors out when parsing based on ports w/ genesis 9 console replays
+                            # if self.players[player_port].connect_code:
+                            #     self.combo_state.move.player = self.players[player_port].connect_code
+                            # else:
+                            self.combo_state.move.player = f"Port {player_port}"
                             self.combo_state.move.frame = frame.index
                             self.combo_state.move.move_id = player_frame.most_recent_hit
                             self.combo_state.move.hit_count = 0
