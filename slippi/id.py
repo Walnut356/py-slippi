@@ -35,6 +35,8 @@ class ActionRange(IntEnum):
     GROUND_ATTACK_END = 64
     AERIAL_ATTACK_START = 65
     AERIAL_ATTACK_END = 74
+    FALL_SPECIAL_START = 35
+    FALL_SPECIAL_END = 37
 # Command Grabs
     COMMAND_GRAB_RANGE1_START = 266
     COMMAND_GRAB_RANGE1_END = 304
@@ -58,7 +60,7 @@ class ActionState(IntEnum):
     DEAD_UP_FALL_ICE = 9
     DEAD_UP_FALL_HIT_CAMERA_ICE = 10
 
-    SLEEP = 11 # "Nothing" state, probably - used as shiek/zelda state when the other is active
+    SLEEP = 11 # "Nothing" state, probably - used as sheik/zelda state when the other is active
 
     REBIRTH = 12 # Entering on halo
     REBIRTH_WAIT = 13 # Waiting on halo
@@ -821,3 +823,33 @@ class TurnipFace(IntEnum):
     WINK = 5
     DOT = 6
     STITCH = 7
+
+thing = {
+    "MARIO" : [0x15c],
+    "FOX" : [ ],
+    "CAPTAIN_FALCON" : 2,
+    "DONKEY_KONG" : 3,
+    "KIRBY" : 4,
+    "BOWSER" : 5,
+    "LINK" : 6,
+    "SHEIK" : 7,
+    "NESS" : 8,
+    "PEACH" : 9,
+    "POPO" : 10,
+    "NANA" : 11,
+    "PIKACHU" : 12,
+    "SAMUS" : 13,
+    "YOSHI" : 14,
+    "JIGGLYPUFF" : 15,
+    "MEWTWO" : 16,
+    "LUIGI" : 17,
+    "MARTH" : 18,
+    "ZELDA" : 19,
+    "YOUNG_LINK" : 20,
+    "DR_MARIO" : 21,
+    "FALCO" : 22,
+    "PICHU" : 23,
+    "GAME_AND_WATCH" : 24,
+    "GANONDORF" : 25,
+    "ROY" : 26,
+    }

@@ -5,7 +5,7 @@ from math import degrees, atan2, tau
 
 from .game import Game
 from .event import Frame, Position, StateFlags, Start, Velocity
-from .id import ActionState, ActionRange, Stage
+from .id import ActionState, ActionRange, Stage, InGameCharacter
 from .util import *
 from .metadata import Metadata
 
@@ -141,10 +141,13 @@ def is_downed(action_state: int) -> bool:
     """Recieves action state, returns whether or not player is downed (i.e. missed tech)"""
     return (ActionRange.DOWN_START <= action_state <= ActionRange.DOWN_END)
 
-def is_offstage(curr_frame: Frame.Port.Data.Post, stage) -> bool:
+def is_offstage(position: Position, stage) -> bool:
     """Recieves current frame and stage ID, returns whether or not the player is outside the X coordinates denoting the on-stage bounds"""
     stage_bounds = [0, 0]
 
+    if position.y < -5:
+        return True
+    
     # I manually grabbed these values using uncle punch and just moving as close to the edge as I could and rounding away from 0.
     # They don't cover 100% of cases (such as being underneath BF), but it's accurate enough for most standard edgeguard situations
     # In the future I'll add a Y value check, but i'll handle that when i handle ading Y value for juggles.
@@ -162,7 +165,7 @@ def is_offstage(curr_frame: Frame.Port.Data.Post, stage) -> bool:
         case Stage.FINAL_DESTINATION:
             stage_bounds = [-89, 89]
 
-    return (curr_frame.position.x < stage_bounds[0] or curr_frame.position.x > stage_bounds[1])
+    return (position.x < stage_bounds[0] or position.x > stage_bounds[1])
 
 def is_shielding(action_state: int) -> bool:
     """Recieves action state, returns whether or not it falls into the guard action states"""
@@ -202,6 +205,37 @@ def is_wavedashing(action_state: int, port:int,  frame_index: int, all_frames: l
             return True
     return False
 
+def is_maybe_juggled(position: Position, is_airborne: bool, stage: Stage) -> bool:
+    if is_airborne is not None:
+        if not is_airborne:
+            return False
+
+        match stage:
+            case Stage.FOUNTAIN_OF_DREAMS:
+                stage_bounds = 42
+            case Stage.YOSHIS_STORY:
+                stage_bounds = 42
+            case Stage.DREAM_LAND_N64:
+                stage_bounds = 51
+            case Stage.POKEMON_STADIUM:
+            # similar side plat heights to yoshi's, so we can steal the top plat height as well
+                stage_bounds = 42
+            case Stage.BATTLEFIELD:
+                stage_bounds = 54
+            case Stage.FINAL_DESTINATION:
+            # No plats, so we'll just use a lower-than-average value
+                stage_bounds = 35
+            case _:
+                return False
+
+    return position.y >= stage_bounds
+
+def is_special_fall(state: int) -> bool:
+    return ActionRange.FALL_SPECIAL_START <= state <= ActionRange.FALL_SPECIAL_END
+
+def is_recovery_lag(character, state) -> bool:
+    
+    
 def get_death_direction(action_state: int) -> str:
     match action_state:
         case 0:
@@ -265,7 +299,6 @@ class JoystickRegion(IntEnum):
     LEFT = 6
     UP_LEFT = 7
 
-
 def get_joystick_region(stick_position: Position) -> JoystickRegion:
     region = JoystickRegion.DEAD_ZONE
 
@@ -311,3 +344,4 @@ def max_di_angles(angle):
         if angles[1] > 180:
             angles[1] -= 360
         return angles
+

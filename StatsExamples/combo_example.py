@@ -5,6 +5,7 @@ from typing import List, Dict, Optional
 from slippi import *
 from slippi.combo import generate_clippi_header
 import filters
+
 dolphin_queue = generate_clippi_header()
 
 def combo_from_file(file, connect_code: str) -> ComboComputer:
@@ -46,13 +47,14 @@ if __name__ == '__main__':
     print("Processing...")
     with os.scandir(replay_dir) as thing:
         for entry in thing:
-            combos = combo_from_file(os.path.join(replay_dir, entry.name), code_input)
-            for c in combos:
-                dolphin_queue["queue"].append(c)
-            print(f"{entry.name} processed, {len(dolphin_queue["queue"])}")
+            if entry.name == "Game_20230122T181447.slp":
+                combos = combo_from_file(os.path.join(replay_dir, entry.name), code_input)
+                for c in combos:
+                    dolphin_queue["queue"].append(c)
+                print(f"{entry.name} processed")
 
     with open("py_clip_combos.json", "w") as write_file:
-        json.dump(dolphin_queue, write_file, indent=4)
+        json.dump(dolphin_queue, write_file, indent=2)
 
     print("Done")
 

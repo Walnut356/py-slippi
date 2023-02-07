@@ -6,6 +6,7 @@ from .event import Frame, Start, Position
 from .game import Game
 from .metadata import Metadata
 from .util import *
+from .id import InGameCharacter
 
 COMBO_LENIENCY = 45
 PRE_COMBO_BUFFER_FRAMES = -60
@@ -147,12 +148,14 @@ class ComboComputer(ComputerBase):
         # This is super gross but the c++ in me says this is the least annoying way to do this for now
             if len(player_ports) == 2:
                 opponent_port:int = player_ports[port_index - 1] # This will obviously only work for 2 ports max
-
             for i, frame in enumerate(self.all_frames):
             # player data is stored as list of frames -> individual frame -> port -> leader/follower -> pre/post frame data
             # we make an interface as soon as possible because that's awful
                 player_frame = self.port_frame(player_port, frame).post
                 opponent_frame = self.port_frame(opponent_port, frame).post
+
+                if opponent_frame.character == InGameCharacter.SHEIK and i >= 2366 and i < 2450:
+                    print(opponent_frame.state.name)
 
             # Frames are -123 indexed, so we can't just pull the frame's .index to acquire the previous frame
             # this is the sole reason for enumerating self.all_frames
@@ -252,13 +255,15 @@ class ComboComputer(ComputerBase):
                 opnt_is_teching = is_teching(opnt_action_state) and tech_check
                 opnt_is_downed = is_downed(opnt_action_state) and downed_check
                 opnt_is_dying = is_dying(opnt_action_state)
-                opnt_is_offstage = is_offstage(opponent_frame, self.rules.stage) and offstage_check
+                opnt_is_offstage = is_offstage(opponent_frame.position, self.rules.stage) and offstage_check
                 opnt_is_dodging = is_dodging(opnt_action_state) and dodge_check and not is_wavedashing(opnt_action_state, opponent_port, i, self.all_frames)
                 opnt_is_shielding = is_shielding(opnt_action_state) and shield_check
                 opnt_is_shield_broken = is_shield_broken(opnt_action_state) and shield_break_check
                 opnt_did_lose_stock = did_lose_stock(opponent_frame, prev_opponent_frame)
                 opnt_is_ledge_action = is_ledge_action(opnt_action_state) and ledge_check
-
+                opnt_is_maybe_juggled = is_maybe_juggled(opponent_frame.position, opponent_frame.is_airborne, self.rules.stage) #TODO and juggled check
+                opnt_is_special_fall = is_special_fall(opnt_action_state)
+            
                 if not opnt_did_lose_stock:
                     self.combo_state.combo.current_percent = opponent_frame.percent
 
@@ -280,7 +285,9 @@ class ComboComputer(ComputerBase):
                     opnt_is_downed or # Action state range
                     opnt_is_teching or # Action state range
                     opnt_is_ledge_action or # Action state range
-                    opnt_is_shield_broken): # Action state range
+                    opnt_is_shield_broken or
+                    opnt_is_maybe_juggled or
+                    opnt_is_special_fall): # Action state range
 
                     self.combo_state.reset_counter = 0
                 else:
