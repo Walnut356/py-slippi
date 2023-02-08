@@ -233,9 +233,18 @@ def is_maybe_juggled(position: Position, is_airborne: bool, stage: Stage) -> boo
 def is_special_fall(state: int) -> bool:
     return ActionRange.FALL_SPECIAL_START <= state <= ActionRange.FALL_SPECIAL_END
 
-def is_recovery_lag(character, state) -> bool:
-    
-    
+def is_upb_lag(state:int, prev_state:int) -> bool:
+    return (state == ActionState.LAND_FALL_SPECIAL and
+            prev_state != ActionState.LAND_FALL_SPECIAL and
+            prev_state != ActionState.KNEE_BEND and
+            prev_state != ActionState.ESCAPE_AIR and
+            (prev_state <= ActionRange.CONTROLLED_JUMP_START or
+            prev_state >= ActionRange.CONTROLLED_JUMP_END))
+
+# VERY untested, probably don't use
+# def is_recovery_lag(character: InGameCharacter, state: ActionState) -> bool:
+#     return state.value in RECOVERY_LAG[character]
+
 def get_death_direction(action_state: int) -> str:
     match action_state:
         case 0:

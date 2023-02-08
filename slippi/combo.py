@@ -9,7 +9,7 @@ from .util import *
 from .id import InGameCharacter
 
 COMBO_LENIENCY = 45
-PRE_COMBO_BUFFER_FRAMES = -60
+PRE_COMBO_BUFFER_FRAMES = 60
 POST_COMBO_BUFFER_FRAMES = 90
 
 class ComboEvent(Enum):
@@ -126,7 +126,7 @@ class ComboComputer(ComputerBase):
         self.queue.append({})
         self.queue[-1]["path"] = self.replay_path
         self.queue[-1]["gameStartAt"] = self.metadata.date.strftime("%m/%d/%y %I:%M %p")
-        self.queue[-1]["startFrame"] = c.start_frame + PRE_COMBO_BUFFER_FRAMES
+        self.queue[-1]["startFrame"] = c.start_frame - PRE_COMBO_BUFFER_FRAMES
         self.queue[-1]["endFrame"] = c.end_frame + POST_COMBO_BUFFER_FRAMES
         return self.queue
 
@@ -153,9 +153,6 @@ class ComboComputer(ComputerBase):
             # we make an interface as soon as possible because that's awful
                 player_frame = self.port_frame(player_port, frame).post
                 opponent_frame = self.port_frame(opponent_port, frame).post
-
-                if opponent_frame.character == InGameCharacter.SHEIK and i >= 2366 and i < 2450:
-                    print(opponent_frame.state.name)
 
             # Frames are -123 indexed, so we can't just pull the frame's .index to acquire the previous frame
             # this is the sole reason for enumerating self.all_frames
@@ -263,6 +260,8 @@ class ComboComputer(ComputerBase):
                 opnt_is_ledge_action = is_ledge_action(opnt_action_state) and ledge_check
                 opnt_is_maybe_juggled = is_maybe_juggled(opponent_frame.position, opponent_frame.is_airborne, self.rules.stage) #TODO and juggled check
                 opnt_is_special_fall = is_special_fall(opnt_action_state)
+                opnt_is_upb_lag = is_upb_lag(opnt_action_state, prev_opponent_frame.state)
+                # opnt_is_recovery_lag = is_recovery_lag(opponent_frame.character, opnt_action_state)
             
                 if not opnt_did_lose_stock:
                     self.combo_state.combo.current_percent = opponent_frame.percent
@@ -279,15 +278,16 @@ class ComboComputer(ComputerBase):
                     opnt_is_in_hitlag or # Bitflags (will always fail with old replays)
                     opnt_is_in_hitstun or # Bitflags (will always fail with old replays)
                     opnt_is_shielding or # Action state range
-                    opnt_is_offstage or # X coordinate check
+                    opnt_is_offstage or # X and Y coordinate check
                     opnt_is_dodging or # Action state range
                     opnt_is_dying or # Action state range
                     opnt_is_downed or # Action state range
                     opnt_is_teching or # Action state range
                     opnt_is_ledge_action or # Action state range
-                    opnt_is_shield_broken or
-                    opnt_is_maybe_juggled or
-                    opnt_is_special_fall): # Action state range
+                    opnt_is_shield_broken or # Action state range
+                    opnt_is_maybe_juggled or # Y coordinate check
+                    opnt_is_special_fall or #Action state range
+                    opnt_is_upb_lag): # Action state range
 
                     self.combo_state.reset_counter = 0
                 else:
