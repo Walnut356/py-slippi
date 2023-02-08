@@ -44,14 +44,14 @@ if __name__ == '__main__':
     replay_dir = Path(input("Please enter the path to your directory of your replay files: "))
     code_input = input("Please enter your connect code (TEST#123): ")
 
+
     print("Processing...")
     with os.scandir(replay_dir) as thing:
         for entry in thing:
-            if entry.name == "Game_20230122T181447.slp":
-                combos = combo_from_file(os.path.join(replay_dir, entry.name), code_input)
-                for c in combos:
-                    dolphin_queue["queue"].append(c)
-                print(f"{entry.name} processed")
+            combos = combo_from_file(os.path.join(replay_dir, entry.name), code_input)
+            for c in combos:
+                dolphin_queue["queue"].append(c)
+            print(f"{entry.name} processed")
 
     with open("py_clip_combos.json", "w") as write_file:
         json.dump(dolphin_queue, write_file, indent=2)
