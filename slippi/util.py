@@ -1,5 +1,4 @@
 import enum, os, re, struct, sys
-from typing import Tuple
 
 from .log import log
 
@@ -32,11 +31,11 @@ def _format(obj):
         return str(obj)
 
 
-def try_enum(enum, val):
+def try_enum(enum_type, val):
     try:
-        return enum(val)
+        return enum_type(val)
     except ValueError:
-        log.info('unknown %s: %s' % (enum.__name__, val))
+        log.info('unknown %s: %s' % (enum_type.__name__, val))
         return val
 
 
@@ -56,7 +55,7 @@ def expect_bytes(expected_bytes, stream):
 
 
 class Base:
-    __slots__: Tuple = ()
+    # __slots__: Tuple = ()
 
     def _attr_repr(self, attr):
         return attr + '=' + _format(getattr(self, attr))
@@ -65,7 +64,7 @@ class Base:
         attrs = []
         for attr in dir(self):
             # uppercase names are nested classes
-            if not (attr.startswith('_') or attr[0].isupper()):
+            if not callable(getattr(self, attr)) and not (attr.startswith('_') or attr[0].isupper()):
                 s = self._attr_repr(attr)
                 if s:
                     attrs.append(_indent(s))
@@ -88,10 +87,11 @@ class IntEnum(enum.IntEnum):
         raise ValueError(f'{val_desc} is not a valid {cls.__name__}') from None
 
 
-class IntFlag(enum.IntFlag):
-    def __repr__(self):
-        members, _ = enum._decompose(self.__class__, self._value_)
-        return '%s:%s' % (bin(self._value_), '|'.join([str(m._name_ or m._value_) for m in members]))
+# class IntFlag(enum.IntFlag):
+#     pass
+#     # def __repr__(self):
+#     #     members, _ = enum._decompose(self.__class__, self._value_)
+#     #     return '%s:%s' % (bin(self._value_), '|'.join([str(m._name_ or m._value_) for m in members]))
 
 
 class EOFError(IOError):
