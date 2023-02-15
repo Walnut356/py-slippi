@@ -58,17 +58,17 @@ def _parse_event_payloads(stream):
         try: EventType(code)
         except ValueError: log.info('ignoring unknown event type: 0x%02x' % code)
 
-    log.debug(f'event payload sizes: {sizes}')
+    # log.debug(f'event payload sizes: {sizes}')
     return (2 + this_size, sizes)
 
 
 def _parse_event(event_stream, payload_sizes):
     (code,) = unpack_uint8(event_stream.read(1))
-    log.debug(f'Event: 0x{code:x}')
+    # log.debug(f'Event: 0x{code:x}')
 
     # remember starting pos for better error reporting
-    try: base_pos = event_stream.tell() if event_stream.seekable() else None
-    except AttributeError: base_pos = None
+    # try: base_pos = event_stream.tell() if event_stream.seekable() else None
+    # except AttributeError: base_pos = None
 
     try: size = payload_sizes[code]
     except KeyError: raise ValueError('unexpected event type: 0x%02x' % code)
@@ -116,7 +116,7 @@ def _parse_event(event_stream, payload_sizes):
         # leaving it up to the `catch` clause in `parse`, because that will
         # always report a position that's at the end of an event (due to
         # `event_stream.read` above).
-        raise ParseError(str(e), pos = base_pos + stream.tell() if base_pos else None)
+        raise ParseError(str(e)) # pos = base_pos + stream.tell() if base_pos else None)
 
 
 def _parse_events(stream, payload_sizes, total_size, handlers, skip_frames):

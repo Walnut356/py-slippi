@@ -1,6 +1,7 @@
 from typing import List
 import timeit
 import io, struct
+import enum
 import numpy as np
 from pathlib import Path    
 import ubjson as ub
@@ -13,4 +14,12 @@ from slippi.event import Start
 # 0, 30, 226, 113
 file = Path(r"Modern Replays/ACID#441 (Peach) vs NUT#356 (Marth) on FD - 12-15-22 01.42am .slp")
 
-print(sum(timeit.repeat("Game(file)", globals=globals(), number=1, repeat=10))/10)
+# print(sum(timeit.repeat("Game(file)", globals=globals(), number=1, repeat=10))/10)
+
+class Four(enum.Enum):
+    thing1 = 1
+    thing2 = 2
+    thing3 = 3
+    thing4 = 4
+
+print(Four.thing1 > Four.thing2)

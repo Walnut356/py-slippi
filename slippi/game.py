@@ -10,6 +10,7 @@ from .util import *
 
 class Game(Base):
     """Replay data from a game of Super Smash Brothers Melee."""
+    __slots__ = ('start', 'frames', 'end', 'metadata', 'metadata_raw')
 
     start: Optional[Start] #: Information about the start of the game
     frames: List[Frame] #: Every frame of the game, indexed by frame number
