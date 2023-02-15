@@ -1,15 +1,38 @@
 from typing import List
+import io, struct
+import numpy as np
+from pathlib import Path    
+import ubjson as ub
 
-from slippi import event, combo
+# 0x71, 0xe2, 0x1e, 0x0
+# 0, 30, 226, 113
+file = Path(r"Modern Replays/ACID#441 (Peach) vs NUT#356 (Marth) on FD - 12-15-22 01.42am .slp")
 
-def filter_direction(stats: List, direction: event.Direction) -> List:
-    if hasattr(stats[0], "direction"):
-        return [stat for stat in stats if stat.direction == direction]
-    else:
-        return stats
 
-def filter_length(combos: List[combo.ComboData], min_length: int=0, max_length: int=100) -> List[combo.ComboData]:
-    return [combo for combo in combos if min_length <= len(combo.moves) <= max_length]
+def unpack(fmt, stream):
+    fmt = '>' + fmt
+    size = struct.calcsize(fmt)
+    bytes = stream.read(size)
+    if not bytes:
+        raise EOFError()
+    return struct.unpack(fmt, bytes)
 
-def filter_damage(combos: List[combo.ComboData], min_damage: int=0, max_damage: int=1000) -> List[combo.ComboData]:
-    return [combo for combo in combos if min_damage <= combo.total_damage() <= max_damage]
+def p_p():
+    with open(file, 'rb') as f:
+        for i in range(2024306):
+            sbubby = unpack("B", f)
+
+def u_p():
+    with open(file, 'rb') as f:
+
+        for i in range(2024306):
+            byte = f.read(1)
+            freef = struct.unpack(">B", byte)
+
+
+for i in range(50):
+    u_p()
+    p_p()
+
+
+

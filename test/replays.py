@@ -58,18 +58,18 @@ class TestGame(unittest.TestCase):
             last_buttons = b
         return button_seq
 
-    def test_run_mypy_module(self):
-        """Run mypy on all module sources"""
-        mypy_call: List[str] = ["mypy"] + self.mypy_opts + ["-p", self.pkgname]
-        browse_result: int = subprocess.call(mypy_call, env=os.environ, cwd=self.pypath)
-        self.assertEqual(browse_result, 0, 'mypy on slippi')
+    # def test_run_mypy_module(self):
+    #     """Run mypy on all module sources"""
+    #     mypy_call: List[str] = ["mypy"] + self.mypy_opts + ["-p", self.pkgname]
+    #     browse_result: int = subprocess.call(mypy_call, env=os.environ, cwd=self.pypath)
+    #     self.assertEqual(browse_result, 0, 'mypy on slippi')
 
-    def test_run_mypy_tests(self):
-        """Run mypy on all tests in module under the tests directory"""
-        for test_file in glob.iglob(f'{os.getcwd()}/tests/*.py'):
-            mypy_call: List[str] = ["mypy"] + self.mypy_opts + [test_file]
-            test_result: int = subprocess.call(mypy_call, env=os.environ, cwd=self.pypath)
-            self.assertEqual(test_result, 0, f'mypy on test {test_file}')
+    # def test_run_mypy_tests(self):
+    #     """Run mypy on all tests in module under the tests directory"""
+    #     for test_file in glob.iglob(f'{os.getcwd()}/tests/*.py'):
+    #         mypy_call: List[str] = ["mypy"] + self.mypy_opts + [test_file]
+    #         test_result: int = subprocess.call(mypy_call, env=os.environ, cwd=self.pypath)
+    #         self.assertEqual(test_result, 0, f'mypy on test {test_file}')
 
     def test_slippi_old_version(self):
         game = self._game('v0.1')

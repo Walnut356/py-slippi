@@ -62,21 +62,24 @@ class Start(Base):
     def _parse(cls, stream):
         slippi_ = cls.Slippi._parse(stream)
 
-        stream.read(8)
-        (is_teams,) = unpack('?', stream)
+        stream.read(8) # skip game bitfields
+        (is_teams,) = unpack_bool(stream.read(1))
 
-        stream.read(5)
-        (stage,) = unpack('H', stream)
+        stream.read(5) # skip item spawn behavior and self destruct score value
+        (stage,) = unpack_uint16(stream.read(2))
         stage = sid.Stage(stage)
 
-        stream.read(80)
+        stream.read(80) # skip game timer, item spawn bitfields, and damage ratio
         players = []
         for i in PORTS:
-            (character, type, stocks, costume) = unpack('BBBB', stream)
+            (character,) = unpack_uint8(stream.read(1))
+            (type,) = unpack_uint8(stream.read(1))
+            (stocks,) = unpack_uint8(stream.read(1))
+            (costume,) = unpack_uint8(stream.read(1))
 
-            stream.read(5)
-            (team,) = unpack('B', stream)
-            stream.read(26)
+            stream.read(5) # skip team shade, handicap
+            (team,) = unpack_uint8(stream.read(1))
+            stream.read(26) # skip remainder of player-specific game info
 
             try: type = cls.Player.Type(type)
             except ValueError: type = None
@@ -90,17 +93,18 @@ class Start(Base):
 
             players.append(player)
 
-        stream.read(72)
-        (random_seed,) = unpack('L', stream)
+        stream.read(72) # skip the rest of the game info block
+        (random_seed,) = unpack_uint32(stream.read(4))
 
         try: # v1.0.0
             for i in PORTS:
-                (dash_back, shield_drop) = unpack('LL', stream)
+                (dash_back,) = unpack_uint32(stream.read(4))
+                (shield_drop,) = unpack_uint32(stream.read(4))
                 dash_back = cls.Player.UCF.DashBack(dash_back)
                 shield_drop = cls.Player.UCF.ShieldDrop(shield_drop)
                 if players[i]:
                     players[i].ucf = cls.Player.UCF(dash_back, shield_drop)
-        except EOFError: pass
+        except struct.error: pass
 
         try: # v1.3.0
             for i in PORTS:
@@ -111,30 +115,32 @@ class Start(Base):
                         tag_bytes = tag_bytes[:null_pos]
                     except ValueError: pass
                     players[i].tag = tag_bytes.decode('shift-jis').rstrip()
-        except EOFError: pass
+        except struct.error: pass
 
         # v1.5.0
-        try: (is_pal,) = unpack('?', stream)
-        except EOFError: is_pal = None
+        try: (is_pal,) = unpack_bool(stream.read(1))
+        except struct.error: is_pal = None
 
         # v2.0.0
-        try: (is_frozen_ps,) = unpack('?', stream)
-        except EOFError: is_frozen_ps = None
+        try: (is_frozen_ps,) = unpack_bool(stream.read(1))
+        except struct.error: is_frozen_ps = None
 
         # v3.14.0
-        stream.read(283)
+        stream.read(283) # skip major/minor scene and slippi info
 
         try:
             (match_id,) = unpack('50s', stream)
             match_id = str(match_id.decode('utf-8')).rstrip('\x00')
+        except struct.error: match_id = None
         except EOFError: match_id = None
 
         stream.read(1)
-        try: (game_number,) = unpack('I', stream)
-        except EOFError: game_number = None
+        try: 
+            (game_number,) = unpack_uint32(stream.read(4))
+        except struct.error: game_number = None
 
-        try: (tiebreak_number,) = unpack('I', stream)
-        except EOFError: tiebreak_number = None
+        try: (tiebreak_number,) = unpack_uint32(stream.read(4))
+        except struct.error: tiebreak_number = None
 
         return cls(
             is_teams=is_teams,
@@ -168,7 +174,9 @@ class Start(Base):
 
         @classmethod
         def _parse(cls, stream):
-            return cls(cls.Version(*unpack('BBBB', stream)))
+            # unpack returns a tuple, so we need to flatten the list. Additionally, we need to splat it to send to the constructor
+            # I try not to use this too often because it's annoying to read if you don't already know what it does
+            return cls(cls.Version(*[tup[0] for tup in [unpack_uint8(stream.read(1)) for i in range(4)]]))
 
         def __eq__(self, other):
             if isinstance(other, self.__class__):
@@ -333,17 +341,20 @@ class End(Base):
 
     @classmethod
     def _parse(cls, stream):
-        (method,) = unpack('B', stream)
+        (method,) = unpack_uint8(stream.read(1))
         try: # v2.0.0
-            (lras,) = unpack('B', stream)
+            (lras,) = unpack_uint8(stream.read(1))
             lras_initiator = lras if lras < len(PORTS) else None
-        except EOFError:
+        except struct.error:
             lras_initiator = None
 
         try: # v3.13.0
-            (p1_placement, p2_placement, p3_placement, p4_placement) = unpack('bbbb', stream)
+            (p1_placement,) = unpack_int8(stream.read(1))
+            (p2_placement,) = unpack_int8(stream.read(1))
+            (p3_placement,) = unpack_int8(stream.read(1))
+            (p4_placement,) = unpack_int8(stream.read(1))
             player_placements = [p1_placement, p2_placement, p3_placement, p4_placement]
-        except EOFError:
+        except struct.error:
             player_placements = None
         return cls(cls.Method(method), lras_initiator, player_placements)
 
@@ -455,17 +466,28 @@ class Frame(Base):
 
                 @classmethod
                 def _parse(cls, stream):
-                    (random_seed, state, position_x, position_y, direction, joystick_x, joystick_y, cstick_x,
-                     cstick_y, trigger_logical, buttons_logical, buttons_physical, trigger_physical_l,
-                     trigger_physical_r) = unpack('LHffffffffLHff', stream)
+                    (random_seed,) = unpack_uint32(stream.read(4))
+                    (state,) = unpack_uint16(stream.read(2))
+                    (position_x,) = unpack_float(stream.read(4))
+                    (position_y,) = unpack_float(stream.read(4))
+                    (direction,) = unpack_float(stream.read(4))
+                    (joystick_x,) = unpack_float(stream.read(4))
+                    (joystick_y,)  = unpack_float(stream.read(4))
+                    (cstick_x,) = unpack_float(stream.read(4))
+                    (cstick_y,)  = unpack_float(stream.read(4))
+                    (trigger_logical,)  = unpack_float(stream.read(4))
+                    (buttons_logical,) = unpack_uint32(stream.read(4))
+                    (buttons_physical,) = unpack_uint16(stream.read(2))
+                    (trigger_physical_l,) = unpack_float(stream.read(4))
+                    (trigger_physical_r,) = unpack_float(stream.read(4))
 
                     # v1.2.0
-                    try: (raw_analog_x,) = unpack('B', stream)
-                    except EOFError: raw_analog_x = None
+                    try: (raw_analog_x,) = unpack_uint8(stream.read(1))
+                    except struct.error: raw_analog_x = None
 
                     # v1.4.0
-                    try: (damage,) = unpack('f', stream)
-                    except EOFError: damage = None
+                    try: (damage,) = unpack_float(stream.read(4))
+                    except struct.error: damage = None
 
                     return cls(
                         state=try_enum(sid.ActionState, state),
@@ -552,16 +574,33 @@ class Frame(Base):
 
                 @classmethod
                 def _parse(cls, stream):
-                    (character, state, position_x, position_y, direction, damage, shield, last_attack_landed,
-                     combo_count, last_hit_by, stocks) = unpack('BHfffffBBBB', stream)
+                    (character,) = unpack_uint8(stream.read(1))
+                    (state,) = unpack_uint16(stream.read(2))
+                    (position_x,) = unpack_float(stream.read(4))
+                    (position_y,) = unpack_float(stream.read(4))
+                    (direction,) = unpack_float(stream.read(4))
+                    (damage,) = unpack_float(stream.read(4))
+                    (shield,) = unpack_float(stream.read(4))
+                    (last_attack_landed,) = unpack_uint8(stream.read(1))
+                    (combo_count,) = unpack_uint8(stream.read(1))
+                    (last_hit_by,) = unpack_uint8(stream.read(1))
+                    (stocks,) = unpack_uint8(stream.read(1))
 
                     # v0.2.0
-                    try: (state_age,) = unpack('f', stream)
-                    except EOFError: state_age = None
+                    try: (state_age,) = unpack_float(stream.read(4))
+                    except struct.error: state_age = None
 
                     try: # v2.0.0
-                        flags = unpack('5B', stream)
-                        (misc_as, airborne, maybe_ground, jumps, l_cancel) = unpack('f?HBB', stream)
+                        # unpack returns a tuple, so we need to flatten the list.
+                        # I try not to use this too often because it's annoying to read if you don't already know what it does
+                        flags = [tup[0] for tup in [unpack_uint8(stream.read(1)) for i in range(5)]]
+
+                        (misc_as,) = unpack_float(stream.read(4))
+                        (airborne,) = unpack_bool(stream.read(1))
+                        (maybe_ground,) = unpack_uint16(stream.read(2))
+                        (jumps,) = unpack_uint8(stream.read(1))
+                        (l_cancel,) = unpack_uint8(stream.read(1))
+
                         flags = StateFlags(flags[0] +
                                            flags[1] * 2**8 +
                                            flags[2] * 2**16 +
@@ -570,30 +609,35 @@ class Frame(Base):
                         ground = maybe_ground if not airborne else None
                         hit_stun = misc_as if flags.HIT_STUN else None
                         l_cancel = LCancel(l_cancel) if l_cancel else None
-                    except EOFError:
+                    except struct.error:
                         (flags, hit_stun, airborne, ground, jumps, l_cancel) = [None] * 6
 
                     try: # v2.1.0
-                        (hurtbox_status,) = unpack('B', stream)
-                    except EOFError:
+                        (hurtbox_status,) = unpack_uint8(stream.read(1))
+                    except struct.error:
                         hurtbox_status = None
 
                     try: # v3.5.0
-                        (self_air_x, self_y, kb_x, kb_y, self_ground_x) = unpack('fffff', stream)
+                        (self_air_x,) = unpack_float(stream.read(4))
+                        (self_y,) = unpack_float(stream.read(4))
+                        (kb_x,) = unpack_float(stream.read(4))
+                        (kb_y,) = unpack_float(stream.read(4))
+                        (self_ground_x,) = unpack_float(stream.read(4))
+
                         self_ground_speed = Velocity(self_ground_x, self_y)
                         self_air_speed = Velocity(self_air_x, self_y)
                         knockback_speed = Velocity(kb_x, kb_y)
-                    except EOFError:
+                    except struct.error:
                         (self_ground_speed, self_air_speed, knockback_speed) = [None] * 3
 
                     try: # v3.8.0
-                        (hitlag_remaining,) = unpack('f', stream)
-                    except EOFError:
+                        (hitlag_remaining,) = unpack_float(stream.read(4))
+                    except struct.error:
                         hitlag_remaining = None
 
                     try: # v3.11.0
-                        (animation_index,) = unpack('I', stream)
-                    except EOFError:
+                        (animation_index,)  = unpack_uint32(stream.read(4))
+                    except struct.error:
                         animation_index = None
 
                     return cls(
@@ -661,11 +705,24 @@ class Frame(Base):
 
         @classmethod
         def _parse(cls, stream):
-            (type, state, direction, x_vel, y_vel, x_pos, y_pos, damage, timer, spawn_id) = unpack('HB5fHfI', stream)
+            (type,) = unpack_uint16(stream.read(2))
+            (state,) = unpack_uint8(stream.read(1))
+            (direction,) = unpack_float(stream.read(4))
+            (x_vel,) = unpack_float(stream.read(4))
+            (y_vel,) = unpack_float(stream.read(4))
+            (x_pos,) = unpack_float(stream.read(4))
+            (y_pos,) = unpack_float(stream.read(4))
+            (damage,) = unpack_uint16(stream.read(2))
+            (timer,) = unpack_float(stream.read(4))
+            (spawn_id,) = unpack_uint32(stream.read(4))
 
             try:
-                (missile_type, turnip_type, is_shot_launched, charge_power, owner) = unpack('4Bb', stream)
-            except EOFError:
+                (missile_type,) = unpack_uint8(stream.read(1))
+                (turnip_type,) = unpack_uint8(stream.read(1))
+                (is_shot_launched,) = unpack_uint8(stream.read(1))
+                (charge_power,) = unpack_uint8(stream.read(1))
+                (owner,) = unpack_int8(stream.read(1))
+            except struct.error:
                 missile_type = None
                 turnip_type = None
                 is_shot_launched = None
@@ -712,7 +769,7 @@ class Frame(Base):
 
         @classmethod
         def _parse(cls, stream):
-            (random_seed,) = unpack('I', stream)
+            (random_seed,) = unpack_uint32(stream.read(4))
             random_seed = random_seed
             return cls(random_seed)
 
@@ -753,14 +810,16 @@ class Frame(Base):
             __slots__ = 'frame'
 
             def __init__(self, stream):
-                (self.frame,) = unpack('i', stream)
+                (self.frame,) = unpack_int32(stream.read(4))
 
 
         class PortId(Id):
             __slots__ = 'port', 'is_follower'
 
             def __init__(self, stream):
-                (self.frame, self.port, self.is_follower) = unpack('iB?', stream)
+                (self.frame,) = unpack_int32(stream.read(4))
+                (self.port,) = unpack_uint8(stream.read(1))
+                (self.is_follower,) = unpack_bool(stream.read(1))
 
 
         class Type(Enum):

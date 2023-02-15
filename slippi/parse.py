@@ -38,7 +38,8 @@ class ParseError(IOError):
 
 
 def _parse_event_payloads(stream):
-    (code, this_size) = unpack('BB', stream)
+    (code,) = unpack_uint8(stream.read(1))
+    (this_size,) = unpack_uint8(stream.read(1))
 
     event_type = EventType(code)
     if event_type is not EventType.EVENT_PAYLOADS:
@@ -51,7 +52,8 @@ def _parse_event_payloads(stream):
 
     sizes = {}
     for i in range(command_count):
-        (code, size) = unpack('BH', stream)
+        (code,)= unpack_uint8(stream.read(1))
+        (size,) = unpack_uint16(stream.read(2))
         sizes[code] = size
         try: EventType(code)
         except ValueError: log.info('ignoring unknown event type: 0x%02x' % code)
@@ -61,7 +63,7 @@ def _parse_event_payloads(stream):
 
 
 def _parse_event(event_stream, payload_sizes):
-    (code,) = unpack('B', event_stream)
+    (code,) = unpack_uint8(event_stream.read(1))
     log.debug(f'Event: 0x{code:x}')
 
     # remember starting pos for better error reporting
@@ -77,32 +79,34 @@ def _parse_event(event_stream, payload_sizes):
         try: event_type = EventType(code)
         except ValueError: event_type = None
 
-        if event_type is EventType.GAME_START:
-            event = Start._parse(stream)
-        elif event_type is EventType.FRAME_PRE:
-            event = Frame.Event(Frame.Event.PortId(stream),
-                                Frame.Event.Type.PRE,
-                                stream)
-        elif event_type is EventType.FRAME_POST:
-            event = Frame.Event(Frame.Event.PortId(stream),
-                                Frame.Event.Type.POST,
-                                stream)
-        elif event_type is EventType.FRAME_START:
-            event = Frame.Event(Frame.Event.Id(stream),
-                                Frame.Event.Type.START,
-                                stream)
-        elif event_type is EventType.ITEM:
-            event = Frame.Event(Frame.Event.Id(stream),
-                                Frame.Event.Type.ITEM,
-                                stream)
-        elif event_type is EventType.FRAME_END:
-            event = Frame.Event(Frame.Event.Id(stream),
-                                Frame.Event.Type.END,
-                                stream)
-        elif event_type is EventType.GAME_END:
-            event = End._parse(stream)
-        else:
-            event = None
+        match event_type:
+            case EventType.GAME_START:
+                event = Start._parse(stream)
+            case EventType.FRAME_PRE:
+                event = Frame.Event(Frame.Event.PortId(stream),
+                                    Frame.Event.Type.PRE,
+                                    stream)
+            case EventType.FRAME_POST:
+                event = Frame.Event(Frame.Event.PortId(stream),
+                                    Frame.Event.Type.POST,
+                                    stream)
+            case EventType.FRAME_START:
+                event = Frame.Event(Frame.Event.Id(stream),
+                                    Frame.Event.Type.START,
+                                    stream)
+            case EventType.ITEM:
+                event = Frame.Event(Frame.Event.Id(stream),
+                                    Frame.Event.Type.ITEM,
+                                    stream)
+            case EventType.FRAME_END:
+                event = Frame.Event(Frame.Event.Id(stream),
+                                    Frame.Event.Type.END,
+                                    stream)
+            case EventType.GAME_END:
+                event = End._parse(stream)
+            case default:
+                event = None
+
         return (1 + size, event)
     except Exception as e:
         # Calculate the stream position of the exception as best we can.
@@ -124,6 +128,7 @@ def _parse_events(stream, payload_sizes, total_size, handlers, skip_frames):
     while (total_size == 0 or bytes_read < total_size) and event != ParseEvent.END:
         (b, event) = _parse_event(stream, payload_sizes)
         bytes_read += b
+        
         if isinstance(event, Start):
             handler = handlers.get(ParseEvent.START)
             if handler:
@@ -190,7 +195,8 @@ def _parse(stream, handlers, skip_frames):
     # Instead, assume `raw` is the first element. This is brittle and
     # ugly, but it's what the official parser does so it should be OK.
     expect_bytes(b'{U\x03raw[$U#l', stream)
-    (length,) = unpack('l', stream)
+    (length,) = unpack_int32(stream.read(4))
+    print(length)
 
     (bytes_read, payload_sizes) = _parse_event_payloads(stream)
     _parse_events(stream, payload_sizes, length - bytes_read, handlers, skip_frames)
