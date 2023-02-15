@@ -29,13 +29,13 @@ class Metadata(Base):
     @classmethod
     def _parse(cls, json):
         d = json['startAt'].rstrip('\x00') # workaround for Nintendont/Slippi<1.5 bug
-        # timezone & fractional seconds aren't always provided, so parse the date manually 
+        # timezone & fractional seconds aren't always provided, so parse the date manually
         # (strptime lacks support for optional components)
-        m = [int(g or '0') for g in 
+        m = [int(g or '0') for g in
              re.search(r'(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(?:Z|\+(\d{2})(\d{2}))?$', d).groups()]
         
         date = datetime(*m[:7], timezone(timedelta(hours=m[7], minutes=m[8])))
-        #Duration is stored as the final frame index + the "pre-Go" frames. 
+        #Duration is stored as the final frame index + the "pre-Go" frames.
         try: duration = 1 + json['lastFrame'] - evt.FIRST_FRAME_INDEX
         except KeyError: duration = None
         platform = cls.Platform(json['playedOn'])
