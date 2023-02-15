@@ -625,7 +625,8 @@ class Frame(Base):
     class Item(Base):
         """An active item (includes projectiles)."""
 
-        __slots__ = 'type', 'state', 'direction', 'velocity', 'position', 'damage', 'timer', 'spawn_id'
+        __slots__ = ('type', 'state', 'direction', 'velocity', 'position', 'damage', 'timer', 'spawn_id', 'missile_type',
+        'turnip_type', 'is_shot_launched', 'charge_power', 'owner')
 
         type: sid.Item #: Item type
         state: int #: Item's action state

@@ -41,20 +41,21 @@ def multi_find_combos(dir_path, connect_code: str):
 
 
 if __name__ == '__main__':
-    replay_dir = Path(input("Please enter the path to your directory of your replay files: "))
-    code_input = input("Please enter your connect code (TEST#123): ")
+    replay_dir = Path(r"Modern Replays") # Path(input("Please enter the path to your directory of your replay files: "))
+    code_input = "NUT#356"
 
 
     print("Processing...")
     with os.scandir(replay_dir) as thing:
         for entry in thing:
-            combos = combo_from_file(os.path.join(replay_dir, entry.name), code_input)
-            for c in combos:
-                dolphin_queue["queue"].append(c)
-            print(f"{entry.name} processed")
+            if entry.name == "ACID#441 (Peach) vs NUT#356 (Marth) on FD - 12-15-22 01.42am .slp":
+                combos = combo_from_file(os.path.join(replay_dir, entry.name), code_input)
+                for c in combos:
+                    dolphin_queue["queue"].append(c)
+                print(f"{entry.name} processed")
 
-    with open("py_clip_combos.json", "w") as write_file:
-        json.dump(dolphin_queue, write_file, indent=2)
+    # with open("py_clip_combos.json", "w") as write_file:
+    #     json.dump(dolphin_queue, write_file, indent=2)
 
     print("Done")
 

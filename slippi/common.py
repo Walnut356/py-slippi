@@ -37,7 +37,7 @@ class ComputerBase(Base):
         self.players = [player for player in parsed_replay.metadata.players if player is not None]
         self.all_frames = parsed_replay.frames
         self.metadata = parsed_replay.metadata
-        self.placements = parsed_replay.end.player_placements
+        # self.placements = parsed_replay.end.player_placements
         self.did_win = None
 
             

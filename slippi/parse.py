@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import io, os, pathlib
 from typing import BinaryIO, Callable, Dict, Union
+import concurrent.futures
+import itertools
 
 import ubjson
 
@@ -60,22 +62,21 @@ def _parse_event_payloads(stream):
     return (2 + this_size, sizes)
 
 
-def _parse_event(event_stream, payload_sizes):
-    (code,) = unpack('B', event_stream)
-    log.debug(f'Event: 0x{code:x}')
-
-    # remember starting pos for better error reporting
-    try: base_pos = event_stream.tell() if event_stream.seekable() else None
+def _parse_event(stream, event_type):
+    # (code,) = unpack('B', event_stream)
+    # log.debug(f'Event: 0x{code:x}')
+    # # remember starting pos for better error reporting
+    try: base_pos = stream.tell() if stream.seekable() else None
     except AttributeError: base_pos = None
 
-    try: size = payload_sizes[code]
-    except KeyError: raise ValueError('unexpected event type: 0x%02x' % code)
+    # try: size = payload_sizes[code]
+    # except KeyError: raise ValueError('unexpected event type: 0x%02x' % code)
 
-    stream = io.BytesIO(event_stream.read(size))
+    # stream = io.BytesIO(event_stream.read(size))
 
     try:
-        try: event_type = EventType(code)
-        except ValueError: event_type = None
+        # try: event_type = EventType(code)
+        # except ValueError: event_type = None
 
         if event_type is EventType.GAME_START:
             event = Start._parse(stream)
@@ -103,7 +104,9 @@ def _parse_event(event_stream, payload_sizes):
             event = End._parse(stream)
         else:
             event = None
-        return (1 + size, event)
+
+        return event
+
     except Exception as e:
         # Calculate the stream position of the exception as best we can.
         # This won't be perfect: for an invalid enum, the calculated position
@@ -121,68 +124,90 @@ def _parse_events(stream, payload_sizes, total_size, handlers, skip_frames):
     event = None
 
     # `total_size` will be zero for in-progress replays
-    while (total_size == 0 or bytes_read < total_size) and event != ParseEvent.END:
-        (b, event) = _parse_event(stream, payload_sizes)
-        bytes_read += b
-        if isinstance(event, Start):
-            handler = handlers.get(ParseEvent.START)
-            if handler:
-                handler(event)
-            if skip_frames: 
-                skip = total_size - bytes_read - payload_sizes[EventType.GAME_END.value] - 1
-                stream.seek(skip, os.SEEK_CUR)
-                bytes_read += skip
-                continue
-        elif isinstance(event, End):
-            handler = handlers.get(ParseEvent.END)
-            if handler:
-                handler(event)
-        elif isinstance(event, Frame.Event):
-            # Accumulate all events for a single frame into a single `Frame` object.
+    
+    raw_events = []
+    futures = []
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+    
+        while (total_size == 0 or bytes_read < total_size) and event != ParseEvent.END:
+            
+            (code,) = unpack('B', stream)
+            log.debug(f'Event: 0x{code:x}')
 
-            # We can't use Frame Bookend events to detect end-of-frame,
-            # as they don't exist before Slippi 3.0.0.
-            if current_frame and current_frame.index != event.id.frame:
+            try: base_pos = stream.tell() if stream.seekable() else None
+            except AttributeError: base_pos = None
+
+            try: size = payload_sizes[code]
+            except KeyError: raise ValueError('unexpected event type: 0x%02x' % code)
+
+            futures = {executor.submit(stream.read, size)}
+            # stream_pass = io.BytesIO(stream.read(size))
+            try: event_type = EventType(code)
+            except ValueError: event_type = None
+            bytes_read += size + 1
+
+
+            for future in futures:
+                event = _parse_event(future.result(), event_type)
+                if isinstance(event, Start):
+                    handler = handlers.get(ParseEvent.START)
+                    if handler:
+                        handler(event)
+                    if skip_frames:
+                        skip = total_size - bytes_read - payload_sizes[EventType.GAME_END.value] - 1
+                        stream.seek(skip, os.SEEK_CUR)
+                        bytes_read += skip
+                        continue
+                elif isinstance(event, End):
+                    handler = handlers.get(ParseEvent.END)
+                    if handler:
+                        handler(event)
+                elif isinstance(event, Frame.Event):
+                    # Accumulate all events for a single frame into a single `Frame` object.
+
+                    # We can't use Frame Bookend events to detect end-of-frame,
+                    # as they don't exist before Slippi 3.0.0.
+                    if current_frame and current_frame.index != event.id.frame:
+                        current_frame._finalize()
+                        handler = handlers.get(ParseEvent.FRAME)
+                        if handler:
+                            handler(current_frame)
+                        current_frame = None
+
+                    if not current_frame:
+                        current_frame = Frame(event.id.frame)
+
+                    if event.type is Frame.Event.Type.PRE or event.type is Frame.Event.Type.POST:
+                        port = current_frame.ports[event.id.port]
+                        if not port:
+                            port = Frame.Port()
+                            current_frame.ports[event.id.port] = port
+
+                        if event.id.is_follower:
+                            if port.follower is None:
+                                port.follower = Frame.Port.Data()
+                            data = port.follower
+                        else:
+                            data = port.leader
+
+                        if event.type is Frame.Event.Type.PRE:
+                            data._pre = event.data
+                        else:
+                            data._post = event.data
+                    elif event.type is Frame.Event.Type.ITEM:
+                        current_frame.items.append(Frame.Item._parse(event.data))
+                    elif event.type is Frame.Event.Type.START:
+                        current_frame.start = Frame.Start._parse(event.data)
+                    elif event.type is Frame.Event.Type.END:
+                        current_frame.end = Frame.End._parse(event.data)
+                    else:
+                        raise Exception('unknown frame data type: %s' % event.data)
+
+            if current_frame:
                 current_frame._finalize()
                 handler = handlers.get(ParseEvent.FRAME)
                 if handler:
                     handler(current_frame)
-                current_frame = None
-
-            if not current_frame:
-                current_frame = Frame(event.id.frame)
-
-            if event.type is Frame.Event.Type.PRE or event.type is Frame.Event.Type.POST:
-                port = current_frame.ports[event.id.port]
-                if not port:
-                    port = Frame.Port()
-                    current_frame.ports[event.id.port] = port
-
-                if event.id.is_follower:
-                    if port.follower is None:
-                        port.follower = Frame.Port.Data()
-                    data = port.follower
-                else:
-                    data = port.leader
-
-                if event.type is Frame.Event.Type.PRE:
-                    data._pre = event.data
-                else:
-                    data._post = event.data
-            elif event.type is Frame.Event.Type.ITEM:
-                current_frame.items.append(Frame.Item._parse(event.data))
-            elif event.type is Frame.Event.Type.START:
-                current_frame.start = Frame.Start._parse(event.data)
-            elif event.type is Frame.Event.Type.END:
-                current_frame.end = Frame.End._parse(event.data)
-            else:
-                raise Exception('unknown frame data type: %s' % event.data)
-
-    if current_frame:
-        current_frame._finalize()
-        handler = handlers.get(ParseEvent.FRAME)
-        if handler:
-            handler(current_frame)
 
 
 def _parse(stream, handlers, skip_frames):
