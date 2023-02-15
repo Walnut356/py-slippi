@@ -80,8 +80,6 @@ def _parse_event(event_stream, payload_sizes):
         except ValueError: event_type = None
 
         match event_type:
-            case EventType.GAME_START:
-                event = Start._parse(stream)
             case EventType.FRAME_PRE:
                 event = Frame.Event(Frame.Event.PortId(stream),
                                     Frame.Event.Type.PRE,
@@ -90,18 +88,20 @@ def _parse_event(event_stream, payload_sizes):
                 event = Frame.Event(Frame.Event.PortId(stream),
                                     Frame.Event.Type.POST,
                                     stream)
-            case EventType.FRAME_START:
-                event = Frame.Event(Frame.Event.Id(stream),
-                                    Frame.Event.Type.START,
-                                    stream)
             case EventType.ITEM:
                 event = Frame.Event(Frame.Event.Id(stream),
                                     Frame.Event.Type.ITEM,
+                                    stream)
+            case EventType.FRAME_START:
+                event = Frame.Event(Frame.Event.Id(stream),
+                                    Frame.Event.Type.START,
                                     stream)
             case EventType.FRAME_END:
                 event = Frame.Event(Frame.Event.Id(stream),
                                     Frame.Event.Type.END,
                                     stream)
+            case EventType.GAME_START:
+                event = Start._parse(stream)
             case EventType.GAME_END:
                 event = End._parse(stream)
             case default:
@@ -125,69 +125,66 @@ def _parse_events(stream, payload_sizes, total_size, handlers, skip_frames):
     event = None
 
     # `total_size` will be zero for in-progress replays
-    while (total_size == 0 or bytes_read < total_size) and event != ParseEvent.END:
+    while (total_size == 0 or bytes_read < total_size) and not isinstance(event, End):
         (b, event) = _parse_event(stream, payload_sizes)
         bytes_read += b
         
-        if isinstance(event, Start):
-            handler = handlers.get(ParseEvent.START)
-            if handler:
-                handler(event)
-            if skip_frames: 
-                skip = total_size - bytes_read - payload_sizes[EventType.GAME_END.value] - 1
-                stream.seek(skip, os.SEEK_CUR)
-                bytes_read += skip
-                continue
-        elif isinstance(event, End):
-            handler = handlers.get(ParseEvent.END)
-            if handler:
-                handler(event)
-        elif isinstance(event, Frame.Event):
-            # Accumulate all events for a single frame into a single `Frame` object.
+        # pattern matching a type requires type constructor, probably doesn't actually construct the type?
+        # see: https://stackoverflow.com/questions/70815197
+        match event:
+            case Frame.Event() if not skip_frames:
+                # Accumulate all events for a single frame into a single `Frame` object.
 
-            # We can't use Frame Bookend events to detect end-of-frame,
-            # as they don't exist before Slippi 3.0.0.
-            if current_frame and current_frame.index != event.id.frame:
-                current_frame._finalize()
-                handler = handlers.get(ParseEvent.FRAME)
-                if handler:
-                    handler(current_frame)
-                current_frame = None
+                # We can't use Frame Bookend events to detect end-of-frame,
+                # as they don't exist before Slippi 3.0.0.
+                if current_frame and current_frame.index != event.id.frame:
+                    current_frame._finalize()
+                    handlers[Frame](current_frame)
+                    current_frame = None
 
-            if not current_frame:
-                current_frame = Frame(event.id.frame)
+                if not current_frame:
+                    current_frame = Frame(event.id.frame)
 
-            if event.type is Frame.Event.Type.PRE or event.type is Frame.Event.Type.POST:
-                port = current_frame.ports[event.id.port]
-                if not port:
-                    port = Frame.Port()
-                    current_frame.ports[event.id.port] = port
 
-                if event.id.is_follower:
-                    if port.follower is None:
-                        port.follower = Frame.Port.Data()
-                    data = port.follower
-                else:
-                    data = port.leader
+                match event.type:
+                    case Frame.Event.Type.PRE | Frame.Event.Type.POST:
+                        port = current_frame.ports[event.id.port]
+                        if not port:
+                            port = Frame.Port()
+                            current_frame.ports[event.id.port] = port
+                        if event.id.is_follower:
+                            if port.follower is None:
+                                port.follower = Frame.Port.Data()
+                                data = port.follower
+                        else:
+                            data = port.leader
 
-                if event.type is Frame.Event.Type.PRE:
-                    data._pre = event.data
-                else:
-                    data._post = event.data
-            elif event.type is Frame.Event.Type.ITEM:
-                current_frame.items.append(Frame.Item._parse(event.data))
-            elif event.type is Frame.Event.Type.START:
-                current_frame.start = Frame.Start._parse(event.data)
-            elif event.type is Frame.Event.Type.END:
-                current_frame.end = Frame.End._parse(event.data)
-            else:
-                raise Exception('unknown frame data type: %s' % event.data)
+                        if event.type is Frame.Event.Type.PRE:
+                            data._pre = event.data
+                        else:
+                            data._post = event.data
+                    case Frame.Event.Type.ITEM:
+                        current_frame.items.append(Frame.Item._parse(event.data))
+                    case Frame.Event.Type.START:
+                        current_frame.start = Frame.Start._parse(event.data)
+                    case Frame.Event.Type.END:
+                        current_frame.end = Frame.End._parse(event.data)
+                    case _:
+                        raise Exception('unknown frame data type: %s' % event.data)
+            # Start/End events are put at the end for optimization purposes - frame events happen far more frequently.
+            case Start():
+                handlers[Start](event)
+                if skip_frames and total_size !=0:
+                    skip = total_size - bytes_read - payload_sizes[EventType.GAME_END.value] - 1
+                    stream.seek(skip, os.SEEK_CUR)
+                    bytes_read += skip
+                    continue
+            case End():
+                handlers[End](event)
 
     if current_frame:
         current_frame._finalize()
-        handler = handlers.get(ParseEvent.FRAME)
-        if handler:
-            handler(current_frame)
+        handlers[Frame](current_frame)
 
 
 def _parse(stream, handlers, skip_frames):
@@ -196,22 +193,21 @@ def _parse(stream, handlers, skip_frames):
     # ugly, but it's what the official parser does so it should be OK.
     expect_bytes(b'{U\x03raw[$U#l', stream)
     (length,) = unpack_int32(stream.read(4))
-    print(length)
 
     (bytes_read, payload_sizes) = _parse_event_payloads(stream)
-    _parse_events(stream, payload_sizes, length - bytes_read, handlers, skip_frames)
+    if length != 0:
+        length -= bytes_read
+
+    _parse_events(stream, payload_sizes, length, handlers, skip_frames)
+
 
     expect_bytes(b'U\x08metadata', stream)
 
     json = ubjson.load(stream)
-    raw_handler = handlers.get(ParseEvent.METADATA_RAW)
-    if raw_handler:
-        raw_handler(json)
+    handlers[dict](json)
 
     metadata = Metadata._parse(json)
-    handler = handlers.get(ParseEvent.METADATA)
-    if handler:
-        handler(metadata)
+    handlers[Metadata](metadata)
 
     expect_bytes(b'}', stream)
 
