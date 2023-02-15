@@ -1,16 +1,16 @@
-from typing import Any, Optional
-from os import PathLike
 from enum import Enum
-from math import degrees, atan2, tau
+from math import atan2, degrees, tau
+from os import PathLike
+from typing import Any, Optional
 
+from .event import Frame, Position, Start, StateFlags, Velocity
 from .game import Game
-from .event import Frame, Position, StateFlags, Start, Velocity
-from .id import ActionState, ActionRange, Stage, InGameCharacter
-from .util import *
+from .id import ActionRange, ActionState, InGameCharacter, Stage
 from .metadata import Metadata
+from .util import *
 
 
-class ComputerBase(Base):
+class ComputerBase():
 
     rules: Optional[Start]
     players: list[Metadata.Player]

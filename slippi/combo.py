@@ -1,12 +1,10 @@
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
 from .common import *
-from .event import Frame, Start, Position
-from .game import Game
-from .metadata import Metadata
+from .event import Position
 from .util import *
-from .id import InGameCharacter
 
 COMBO_LENIENCY = 45
 PRE_COMBO_BUFFER_FRAMES = 60
@@ -20,55 +18,36 @@ class ComboEvent(Enum):
     COMBO_EXTEND = "COMBO_EXTEND"
     COMBO_END = "COMBO_END"
 
-class MoveLanded(Base):
+@dataclass
+class MoveLanded():
     """Contains all data for a single move connecting"""
-    player: str
-    frame: int
-    move_id: int
-    hit_count: int
-    damage: float
-    opponent_position: Optional[Position]
-    
-    def __init__(self):
-        self.player = ""
-        self.frame = 0
-        self.move_id = 0
-        self.hit_count = 0
-        self.damage = 0
-        self.opponent_position = None
+    player: str = field(default_factory=str)
+    frame: int = 0
+    move_id: int = 0
+    hit_count: int = 0
+    damage: float = 0
+    opponent_position: Optional[Position] = None
 
-class ComboData(Base):
+@dataclass
+class ComboData():
     """Contains a single complete combo, including movelist
     Helper functions for filtering combos include:
     minimum_damage(num)
     minimum_length(num)
     total_damage()"""
-    player: str
-    moves: List[MoveLanded]
-    did_kill: bool
-    death_direction: Optional[str]
-    player_stocks: int
-    opponent_stocks: int
-    did_end_game: bool
-    start_percent: float
-    current_percent: float
-    end_percent: float
-    start_frame: int
-    end_frame: int
+    player: str = ""
+    moves: List[MoveLanded] = field(default_factory=list)
+    did_kill: bool = False
+    death_direction: Optional[str] = None
+    player_stocks: int = 4
+    opponent_stocks: int = 4
+    did_end_game: bool = False
+    start_percent: float = 0.0
+    current_percent: float = 0.0
+    end_percent: float = 0.0
+    start_frame: int = 0
+    end_frame: int = 0
 
-    def __init__(self):
-        self.player = ""
-        self.moves = []
-        self.did_kill = False
-        self.death_direction = None
-        self.player_stocks = 4
-        self.opponent_stocks = 4
-        self.did_end_game = False
-        self.start_percent = 0.0
-        self.current_percent = 0.0
-        self.end_percent = 0.0
-        self.start_frame = 0
-        self.end_frame = 0
     # I could probably add a "combo_filters()" abstraction with keyword arguments, but that feels like it shoehorns a bit too much by limiting
     # possible filter options, akin to clippi. Until i have a more robust list of filters, i won't make that further abstraction
     def total_damage(self) -> float:
@@ -83,21 +62,15 @@ class ComboData(Base):
         """Recieves number, returns True if combo's total damage was over number"""
         return self.total_damage() >= num
 
-
+@dataclass
 class ComboState(Base):
     """Contains info used during combo calculation to build the final combo"""
-    combo: Optional[ComboData]
-    move: MoveLanded
-    reset_counter: int
-    last_hit_animation: Optional[int]
-    event: Optional[ComboEvent]
-    
-    def __init__(self):
-        self.combo = ComboData()
-        self.move = MoveLanded()
-        self.reset_counter = 0
-        self.last_hit_animation = None
-        self.event = None
+    combo: Optional[ComboData] = field(default_factory=ComboData())
+    move: MoveLanded = field(default_factory=MoveLanded())
+    reset_counter: int = 0
+    last_hit_animation: Optional[int] = None
+    event: Optional[ComboEvent] = None
+
 
 class ComboComputer(ComputerBase):
     """Base class for parsing combo events, call .prime_replay(path) to set up the instance,
@@ -192,22 +165,19 @@ class ComboComputer(ComputerBase):
 
                 # if the opponent has been hit and there's no "active" combo, start a new combo
                     if self.combo_state.combo is None:
-                        self.combo_state.combo = ComboData()
+                        self.combo_state.combo = ComboData(
+                            player=f"Port {player_port}",
+                            player_stocks=player_frame.stocks_remaining,
+                            opponent_stocks=opponent_frame.stocks_remaining,
+                            start_frame=frame.index,
+                            start_percent=prev_opponent_frame.percent,
+                            current_percent=opponent_frame.percent,
+                            end_percent=opponent_frame.percent
+                            )
                         #FIXME errors out when parsing based on ports w/ genesis 9 console replays
                         # if self.players[player_port].connect_code:
                         #     self.combo_state.combo.player = self.players[player_port].connect_code
                         # else:
-                        self.combo_state.combo.player = f"Port {player_port}"
-                        self.combo_state.combo.moves = []
-                        self.combo_state.combo.did_kill = False
-                        self.combo_state.combo.player_stocks = player_frame.stocks_remaining
-                        self.combo_state.combo.opponent_stocks = opponent_frame.stocks_remaining
-                        self.combo_state.combo.did_end_game = False
-                        self.combo_state.combo.start_frame = frame.index
-                        self.combo_state.combo.end_frame = None
-                        self.combo_state.combo.start_percent = prev_opponent_frame.percent
-                        self.combo_state.combo.current_percent = opponent_frame.percent
-                        self.combo_state.combo.end_percent = opponent_frame.percent
 
 
                         self.combos.append(self.combo_state.combo)

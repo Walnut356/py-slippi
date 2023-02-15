@@ -1,12 +1,14 @@
 from typing import Optional
-from math import atan2, degrees, dist
+from math import dist
+from dataclasses import dataclass, field
 
 from .util import Base, try_enum
 from .id import ActionState
 from .event import Position, Buttons, Direction, Attack
 from .common import *
 
-class WavedashData(Base):
+@dataclass
+class WavedashData():
     physical_port: int
     connect_code: Optional[str]
     r_frame: int # which airborne frame was the airdodge input on?
@@ -46,8 +48,9 @@ class WavedashData(Base):
 
     def total_startup(self) -> int:
         return self.r_frame + self.airdodge_frames
-    
-class DashData(Base):
+
+@dataclass
+class DashData():
     physical_port: int
     connect_code: Optional[str]
     start_pos: float
@@ -66,7 +69,8 @@ class DashData(Base):
         return abs(self.end_pos - self.start_pos)
     
 
-class DashState(Base):
+@dataclass
+class DashState():
     dash: DashData
     active_dash: bool
     
@@ -74,7 +78,8 @@ class DashState(Base):
         self.dash = DashData(port, connect_code)
         self.active_dash = False
 
-class TechData(Base):
+@dataclass
+class TechData():
     physical_port: int
     connect_code: Optional[str]
     tech_type: Optional[TechType]
@@ -96,7 +101,8 @@ class TechData(Base):
         self.towards_opponent = None
         self.jab_reset = None
 
-class TechState(Base):
+@dataclass
+class TechState():
     tech: TechData
     last_state: Optional[ActionState | int]
     
@@ -104,7 +110,8 @@ class TechState(Base):
         self.tech = TechData(port, connect_code)
         self.last_state = None
 
-class TakeHitData(Base):
+@dataclass
+class TakeHitData():
     physical_port: int
     connect_code: Optional[str]
     last_hit_by: Optional[int]
@@ -174,7 +181,7 @@ class TakeHitData(Base):
     def distance(self) -> float:
         return dist(self.end_position, self.start_position)
     
-
+@dataclass
 class LCancelData(Base):
     physical_port: Optional[int]
     connect_code: Optional[str]
@@ -191,21 +198,13 @@ class LCancelData(Base):
         return (self.successful/(self.successful + self.failed)) * 100
     
                 
-
+@dataclass
 class Data(Base):
-    wavedash: list[WavedashData]
-    dash: list[DashData]
-    tech: list[TechData]
-    take_hit: list[TakeHitData]
-    l_cancel: Optional[LCancelData]
-
-    def __init__(self):
-        self.wavedash = []
-        self.dash = []
-        self.tech = []
-        self.take_hit = []
-        self.l_cancel = None
-
+    wavedash: list[WavedashData] = field(default_factory=list)
+    dash: list[DashData] = field(default_factory=list)
+    tech: list[TechData] = field(default_factory=list)
+    take_hit: list[TakeHitData] = field(default_factory=list)
+    l_cancel: Optional[LCancelData] = None
 
 
 class StatsComputer(ComputerBase):
@@ -498,14 +497,8 @@ class StatsComputer(ComputerBase):
 
             for i, frame in enumerate(self.all_frames):
                 player_frame = self.port_frame(player_port, frame)
-                opponent_frame = self.port_frame(opponent_port, frame)
 
                 match player_frame.post.l_cancel:
-                    case 0: continue
+                    case 0: pass
                     case 1: self.data.l_cancel.successful += 1
                     case 2: self.data.l_cancel.failed += 1
-
-
-                
-                
-                    

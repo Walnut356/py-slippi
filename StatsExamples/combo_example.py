@@ -1,10 +1,7 @@
-import os, time, cProfile, concurrent.futures, json
-from pathlib import Path
-from typing import List, Dict, Optional
+import os, concurrent.futures, json
 
 from slippi import *
 from slippi.combo import generate_clippi_header
-import filters
 
 dolphin_queue = generate_clippi_header()
 
@@ -41,8 +38,11 @@ def multi_find_combos(dir_path, connect_code: str):
 
 
 if __name__ == '__main__':
-    replay_dir = Path(input("Please enter the path to your directory of your replay files: "))
-    code_input = input("Please enter your connect code (TEST#123): ")
+    # replay_dir = Path(input("Please enter the path to your directory of your replay files: "))
+    # code_input = input("Please enter your connect code (TEST#123): ")
+
+    replay_dir = r"E:\Slippi Replays\beep"
+    code_input = "NUT#356"
 
 
     print("Processing...")
