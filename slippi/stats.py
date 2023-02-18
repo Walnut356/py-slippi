@@ -7,6 +7,7 @@ from .id import ActionState
 from .event import Position, Buttons, Direction, Attack
 from .common import *
 
+
 @dataclass
 class WavedashData():
     physical_port: int
@@ -15,7 +16,7 @@ class WavedashData():
     angle: Optional[float] # in degrees
     airdodge_frames: int
     waveland: bool
-    direction: Optional[Direction]
+    direction: Optional[str]
 
     def __init__(self, port, connect_code:Optional[str], r_input_frame:int=0, stick:Optional[Position]=None, airdodge_frames:int=0):
         self.physical_port = port + 1
@@ -26,18 +27,18 @@ class WavedashData():
             # then we need to normalize the values to degrees-below-horizontal and assign a direction
             if self.angle < -90 and self.angle > -180:
                 self.angle += 180
-                self.direction = Direction.LEFT
+                self.direction = "LEFT"
             if self.angle > -90 and self.angle < 0:
                 self.angle += 90
-                self.direction = Direction.RIGHT
+                self.direction = "RIGHT"
             if self.angle == 180 or self.angle == -180:
                 self.angle = 0
-                self.direction = Direction.LEFT
+                self.direction = "LEFT"
             if self.angle == 0:
-                self.direction = Direction.RIGHT
+                self.direction = "RIGHT"
             if self.angle == -90:
                 self.angle = 90
-                self.direction = Direction.DOWN
+                self.direction = "DOWN"
 
         else:
             raise AttributeError("it's here")
@@ -49,13 +50,14 @@ class WavedashData():
     def total_startup(self) -> int:
         return self.r_frame + self.airdodge_frames
 
+
 @dataclass
 class DashData():
     physical_port: int
     connect_code: Optional[str]
     start_pos: float
     end_pos: float
-    direction: Direction
+    direction: str
     is_dashdance: bool
 
     def __init__(self, port, connect_code:Optional[str], start_pos=0, end_pos = 0):
@@ -78,12 +80,13 @@ class DashState():
         self.dash = DashData(port, connect_code)
         self.active_dash = False
 
+
 @dataclass
 class TechData():
     physical_port: int
     connect_code: Optional[str]
     tech_type: Optional[TechType]
-    direction: Direction
+    direction: str
     position: Position
     is_on_platform: bool
     is_missed_tech: bool
@@ -101,6 +104,7 @@ class TechData():
         self.towards_opponent = None
         self.jab_reset = None
 
+
 @dataclass
 class TechState():
     tech: TechData
@@ -109,6 +113,7 @@ class TechState():
     def __init__(self, port, connect_code:Optional[str]=None):
         self.tech = TechData(port, connect_code)
         self.last_state = None
+
 
 @dataclass
 class TakeHitData():
@@ -180,6 +185,7 @@ class TakeHitData():
     
     def distance(self) -> float:
         return dist(self.end_position, self.start_position)
+ 
     
 @dataclass
 class LCancelData(Base):
@@ -310,7 +316,7 @@ class StatsComputer(ComputerBase):
                     if prev_player_state != ActionState.DASH and prev_prev_player_frame != ActionState.DASH:
                         self.dash_state.dash = DashData(player_port, connect_code)
                         self.dash_state.active_dash = True
-                        self.dash_state.dash.direction = player_frame.post.facing_direction
+                        self.dash_state.dash.direction = player_frame.post.facing_direction.name
                         self.dash_state.dash.start_pos = player_frame.post.position.x
                     
                     if prev_player_state == ActionState.TURN and prev_prev_player_state == ActionState.DASH:
@@ -320,7 +326,7 @@ class StatsComputer(ComputerBase):
                         # then we need to create a new dash and update its information
                         self.dash_state.dash = DashData(player_port, connect_code)
                         self.dash_state.active_dash = True
-                        self.dash_state.dash.direction = player_frame.post.facing_direction
+                        self.dash_state.dash.direction = player_frame.post.facing_direction.name
                         self.dash_state.dash.start_pos = player_frame.post.position.x
                         self.dash_state.dash.is_dashdance = True
                     
@@ -377,7 +383,7 @@ class StatsComputer(ComputerBase):
 
                 tech_type = get_tech_type(player_state, player_frame.facing_direction)
 
-                self.tech_state.tech.tech_type = tech_type
+                self.tech_state.tech.tech_type = tech_type.name
                 
                 if player_state == self.tech_state.last_state:
                     continue

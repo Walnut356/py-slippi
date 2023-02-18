@@ -12,37 +12,82 @@ from slippi import *
 # stats.prime_replay(replay)
 # stats.stats_compute("NUT#356")
 
+def get_default_header(stats_computer: StatsComputer, connect_code: str) -> dict:
+    
+    formatted_date = stats_computer.metadata.date.replace(tzinfo=None)
+    # total number of frames, starting when the player has control, in seconds
+    formatted_time = datetime.timedelta(seconds=((stats_computer.metadata.duration)/60)) 
+
+    [player_port], opponent_port = stats_computer.generate_player_ports(connect_code)
+    
+    header = {
+            "match_id" : stats_computer.rules.match_id,
+            "date_time" : formatted_date,
+            "duration" : formatted_time,
+            "ranked" : stats_computer.rules.is_ranked,
+            "win" : stats_computer.is_winner(player_port),
+            "char" : id.InGameCharacter(list(stats.players[player_port].characters.keys())[0]).name, #lmao
+            "opnt_Char" : id.InGameCharacter(list(stats.players[opponent_port].characters.keys())[0]).name
+            }
+
+    return header
+
+
 def get_wavedash_data(replay, connect_code) -> dict:
     stats = StatsComputer()
     stats.prime_replay(replay)
     stats.wavedash_compute(connect_code)
-
-    player_port, opponent_port = stats.generate_player_ports(connect_code)
-    player_port = player_port[0]
     
-    formatted_date = stats.metadata.date.replace(tzinfo=None)
-    # total number of frames, starting when the player has control, in seconds
-    formatted_time = datetime.timedelta(seconds=((stats.metadata.duration - 84)/60)) 
-    
-    header = {
-            "match_id" : stats.rules.match_id,
-            "date_time" : formatted_date,
-            "duration" : formatted_time,
-            "ranked" : stats.rules.is_ranked,
-            "win" : stats.is_winner(player_port),
-            "char" : id.InGameCharacter(list(stats.players[player_port].characters.keys())[0]).name, #lmao
-            "opnt_Char" : id.InGameCharacter(list(stats.players[opponent_port].characters.keys())[0]).name
-            }
-    wd_data = []
-    for wavedash in stats.data.wavedash:
-        wd_data.append(header | wavedash.__dict__)
-        try:
-            wd_data[-1]["direction"] = wd_data[-1]["direction"].name
-        except KeyError:
-            wd_data[-1]["direction"] = "UNKNOWN"
-        
+    header = get_default_header(stats, connect_code)
+    wd_data = [header | wavedash.__dict__ for wavedash in stats.data.wavedash]
     return wd_data
 
+
+def get_dash_data(replay, connect_code) -> dict:
+    stats = StatsComputer()
+    stats.prime_replay(replay)
+    stats.wavedash_compute(connect_code)
+
+    header = get_default_header(stats)
+    dash_data = [header | dash.__dict__ for dash in stats.data.dash]
+    return dash_data
+
+
+def get_tech_data(replay, connect_code) -> dict:
+    stats = StatsComputer()
+    stats.prime_replay(replay)
+    stats.wavedash_compute(connect_code)
+
+    header = get_default_header(stats)
+    tech_data = [header | tech.__dict__ for tech in stats.data.tech]
+    return tech_data
+
+def get_take_hit_data(replay, connect_code) -> dict:
+    stats = StatsComputer()
+    stats.prime_replay(replay)
+    stats.wavedash_compute(connect_code)
+
+    header = get_default_header(stats)
+    take_hit_data = [header | take_hit.__dict__ for take_hit in stats.data.take_hit]
+    return take_hit_data
+
+def get_l_cancel_data(replay, connect_code) -> dict:
+    stats = StatsComputer()
+    stats.prime_replay(replay)
+    stats.wavedash_compute(connect_code)
+
+    header = get_default_header(stats)
+    l_cancel_data = [header | l_cancel.__dict__ for l_cancel in stats.data.l_cancel]
+    return l_cancel_data
+
+def get_general_data(replay, connect_code) -> dict:
+    stats = StatsComputer()
+    stats.prime_replay(replay)
+    stats.wavedash_compute(connect_code)
+
+    header = get_default_header(stats, connect_code)
+
+    #TODO aggregate data from other data outputs
 
 def stats_from_file(file, connect_code: str) -> pl.DataFrame:
     """Accept file path and connect code, process combos, and return"""

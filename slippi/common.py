@@ -55,6 +55,8 @@ class ComputerBase():
                 else:
                     opponent_port = i
             if player_port == opponent_port: return [[], None]
+            # TODO raise exception? log warning?
+            # currently returns nothing so program will continue and stats calc will do nothing
             return [[player_port], opponent_port]
         else:
         # If there's no connect code, extract the port values of both *active* ports
