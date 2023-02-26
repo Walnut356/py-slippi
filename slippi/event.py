@@ -5,6 +5,7 @@ from typing import Optional, Sequence, Tuple, Union, List
 
 from . import id as sid
 from .util import *
+import logging
 
 # The first frame of the game is indexed -123, counting up to zero (which is when the word "GO" appears).
 # But since players actually get control before frame zero (!!!), we need to record these frames.
@@ -558,17 +559,19 @@ class Frame(Base):
                     # v0.2.0
                     try: (state_age,) = unpack('f', stream)
                     except EOFError: state_age = None
-
+                    
                     try: # v2.0.0
                         flags = unpack('5B', stream)
+                        
                         (misc_as, airborne, maybe_ground, jumps, l_cancel) = unpack('f?HBB', stream)
-                        flags = StateFlags(flags[0] +
-                                           flags[1] * 2**8 +
-                                           flags[2] * 2**16 +
-                                           flags[3] * 2**24 +
-                                           flags[4] * 2**32)
+                        log.info('%s', flags)
+                        # flags = StateFlags(flags[0] +
+                        #                    flags[1] * 2**8 +
+                        #                    flags[2] * 2**16 +
+                        #                    flags[3] * 2**24 +
+                        #                    flags[4] * 2**32)
                         ground = maybe_ground if not airborne else None
-                        hit_stun = misc_as if flags.HIT_STUN else None
+                        hit_stun = misc_as #if flags.HIT_STUN else None
                         l_cancel = LCancel(l_cancel) if l_cancel else None
                     except EOFError:
                         (flags, hit_stun, airborne, ground, jumps, l_cancel) = [None] * 6
