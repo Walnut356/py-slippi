@@ -562,16 +562,15 @@ class Frame(Base):
                     
                     try: # v2.0.0
                         flags = unpack('5B', stream)
-                        
                         (misc_as, airborne, maybe_ground, jumps, l_cancel) = unpack('f?HBB', stream)
                         log.info('%s', flags)
-                        # flags = StateFlags(flags[0] +
-                        #                    flags[1] * 2**8 +
-                        #                    flags[2] * 2**16 +
-                        #                    flags[3] * 2**24 +
-                        #                    flags[4] * 2**32)
+                        flags = StateFlags(flags[0] +
+                                           flags[1] * 2**8 +
+                                           flags[2] * 2**16 +
+                                           flags[3] * 2**24 +
+                                           flags[4] * 2**32)
                         ground = maybe_ground if not airborne else None
-                        hit_stun = misc_as #if flags.HIT_STUN else None
+                        hit_stun = misc_as if flags.HIT_STUN else None
                         l_cancel = LCancel(l_cancel) if l_cancel else None
                     except EOFError:
                         (flags, hit_stun, airborne, ground, jumps, l_cancel) = [None] * 6
