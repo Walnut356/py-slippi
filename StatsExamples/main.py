@@ -12,7 +12,7 @@ import polars as pl
 
 # print("done")
 
-data = pl.read_csv(r"StatsExamples\SSBM Data Sheet (1.02) - Character Attributes.csv")
+data = pl.read_csv(Path(r"StatsExamples/SSBM Data Sheet (1.02) - Character Attributes.csv"))
 
 thing = data.filter(pl.col("name") == "Falco")
 

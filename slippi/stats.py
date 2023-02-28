@@ -20,6 +20,7 @@ class WavedashData():
 
     def __init__(self, port, connect_code:Optional[str], r_input_frame:int=0, stick:Optional[Position]=None, airdodge_frames:int=0):
         self.physical_port = port + 1
+        self.connect_code = connect_code
         self.r_frame = r_input_frame
         if stick:
             # atan2 converts coordinates to degrees without losing information (tan quadrent 1 and 3 are both positive)
@@ -41,7 +42,6 @@ class WavedashData():
                 self.direction = "DOWN"
 
         else:
-            raise AttributeError("it's here")
             self.angle = None
             self.direction = None
         self.airdodge_frames = airdodge_frames
