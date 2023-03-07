@@ -3,7 +3,7 @@
 import datetime, glob, os, subprocess, unittest
 
 from slippi import Game, parse
-from slippi.id import CSSCharacter, InGameCharacter, Item, Stage
+from slippi.enums.state import CSSCharacter, InGameCharacter, Item, Stage
 from slippi.log import log
 from slippi.metadata import Metadata
 from slippi.event import Buttons, Direction, End, Frame, Position, Start, Triggers, Velocity

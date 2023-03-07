@@ -3,9 +3,15 @@ from enum import IntFlag
 
 from typing import Optional, Sequence, Tuple, Union, List
 
-from . import id as sid
+from .enums import (ActionState,
+                    Stage,
+                    CSSCharacter,
+                    InGameCharacter,
+                    Item,
+                    TurnipFace,
+                    Attack)
+
 from .util import *
-import logging
 
 # The first frame of the game is indexed -123, counting up to zero (which is when the word "GO" appears).
 # But since players actually get control before frame zero (!!!), we need to record these frames.
@@ -33,7 +39,7 @@ class Start(Base):
     players: Tuple[Optional[Start.Player]] #: Players in this game by port (port 1 is at index 0; empty ports will contain None)
     random_seed: int #: Random seed before the game start
     slippi: Start.Slippi #: Information about the Slippi recorder that generated this replay
-    stage: sid.Stage #: Stage on which this game was played
+    stage: Stage #: Stage on which this game was played
     is_pal: Optional[bool] #: `added(1.5.0)` True if this was a PAL version of Melee
     is_frozen_ps: Optional[bool] #: `added(2.0.0)` True if frozen Pokemon Stadium was enabled
     match_id: Optional[str] #: `added(3.14.0)` Mode (ranked/unranked) and time the match started
@@ -41,7 +47,7 @@ class Start(Base):
     game_number: Optional[int] #: `added(3.14.0)` The game number for consecutive games
     tiebreak_number: Optional[int]
 
-    def __init__(self, is_teams: bool, players: Tuple[Optional[Start.Player]], random_seed: int, slippi: Start.Slippi, stage: sid.Stage,
+    def __init__(self, is_teams: bool, players: Tuple[Optional[Start.Player]], random_seed: int, slippi: Start.Slippi, stage: Stage,
                  is_pal: Optional[bool] = None, is_frozen_ps: Optional[bool] = None, match_id: Optional[str] = None,
                  game_number: Optional[int] = None, tiebreak_number: Optional[int] = None):
         self.is_teams = is_teams
@@ -68,7 +74,7 @@ class Start(Base):
 
         stream.read(5)
         (stage,) = unpack('H', stream)
-        stage = sid.Stage(stage)
+        stage = Stage(stage)
 
         stream.read(80)
         players = []
@@ -83,7 +89,7 @@ class Start(Base):
             except ValueError: type = None
 
             if type is not None:
-                character = sid.CSSCharacter(character)
+                character = CSSCharacter(character)
                 team = cls.Player.Team(team) if is_teams else None
                 player = cls.Player(character=character, type=type, stocks=stocks, costume=costume, team=team)
             else:
@@ -249,7 +255,7 @@ class Start(Base):
     class Player(Base):
         """Contains metadata about the player from the console's perspective including:
         character, starting stock count, costume, team, in-game tag, and UCF toggles"""
-        character: sid.CSSCharacter #: Character selected
+        character: CSSCharacter #: Character selected
         type: Start.Player.Type #: Player type (human/cpu)
         stocks: int #: Starting stock count
         costume: int #: Costume ID
@@ -257,7 +263,7 @@ class Start(Base):
         ucf: Start.Player.UCF #: UCF feature toggles
         tag: Optional[str] #: Name tag
 
-        def __init__(self, character: sid.CSSCharacter, type: Start.Player.Type, stocks: int, costume: int,
+        def __init__(self, character: CSSCharacter, type: Start.Player.Type, stocks: int, costume: int,
                      team: Optional[Start.Player.Team], ucf: Start.Player.UCF = None, tag: Optional[str] = None):
             self.character = character
             self.type = type
@@ -429,7 +435,7 @@ class Frame(Base):
                 __slots__ = 'state', 'position', 'facing_direction', 'joystick', 'cstick', 'triggers', 'buttons',\
                 'random_seed', 'raw_analog_x', 'percent'
 
-                state: Union[sid.ActionState, int]
+                state: Union[ActionState, int]
                 position: Position
                 facing_direction: Direction
                 joystick: Position
@@ -440,7 +446,7 @@ class Frame(Base):
                 raw_analog_x: Optional[int]
                 percent: Optional[float]
 
-                def __init__(self, state: Union[sid.ActionState, int], position: Position, direction: Direction,
+                def __init__(self, state: Union[ActionState, int], position: Position, direction: Direction,
                              joystick: Position, cstick: Position, triggers: Triggers, buttons: Buttons,
                              random_seed: int, raw_analog_x: Optional[int] = None, damage: Optional[float] = None):
                     self.state = state #: :py:class:`slippi.id.ActionState` | int: Character's action state
@@ -469,7 +475,7 @@ class Frame(Base):
                     except EOFError: damage = None
 
                     return cls(
-                        state=try_enum(sid.ActionState, state),
+                        state=try_enum(ActionState, state),
                         position=Position(position_x, position_y),
                         direction=Direction(direction),
                         joystick=Position(joystick_x, joystick_y),
@@ -490,8 +496,8 @@ class Frame(Base):
                 'last_ground_id', 'jumps_remaining', 'l_cancel', 'hurtbox_status', 'self_ground_speed', 'self_air_speed',
                 'knockback_speed', 'hitlag_remaining', 'animation_index')
 
-                character: sid.InGameCharacter # In-game character (can only change for Zelda/Sheik).
-                state: Union[sid.ActionState, int] # Character's action state
+                character: InGameCharacter # In-game character (can only change for Zelda/Sheik).
+                state: Union[ActionState, int] # Character's action state
                 position: Position # Character's position
                 facing_direction: Direction # Direction the character is facing
                 percent: float # Current damage percent
@@ -518,7 +524,7 @@ class Frame(Base):
                 # TODO enum animation indexes
                 
                 
-                def __init__(self, character: sid.InGameCharacter, state: Union[sid.ActionState, int],
+                def __init__(self, character: InGameCharacter, state: Union[ActionState, int],
                              position: Position, direction: Direction, damage: float, shield: float, stocks: int,
                              most_recent_hit: Union[Attack, int], last_hit_by: Optional[int], combo_count: int,
                              state_age: Optional[float] = None, flags: Optional[StateFlags] = None, hit_stun: Optional[float] = None,
@@ -569,7 +575,7 @@ class Frame(Base):
                                            flags[2] * 2**16 +
                                            flags[3] * 2**24 +
                                            flags[4] * 2**32)
-                        ground = maybe_ground if not airborne else None
+                        ground = maybe_ground
                         hit_stun = misc_as if flags.HIT_STUN else None
                         l_cancel = LCancel(l_cancel) if l_cancel else None
                     except EOFError:
@@ -599,8 +605,8 @@ class Frame(Base):
                         animation_index = None
 
                     return cls(
-                        character=sid.InGameCharacter(character),
-                        state=try_enum(sid.ActionState, state),
+                        character=InGameCharacter(character),
+                        state=try_enum(ActionState, state),
                         state_age=state_age,
                         position=Position(position_x, position_y),
                         direction=Direction(direction),
@@ -629,7 +635,7 @@ class Frame(Base):
 
         __slots__ = 'type', 'state', 'direction', 'velocity', 'position', 'damage', 'timer', 'spawn_id'
 
-        type: sid.Item #: Item type
+        type: Item #: Item type
         state: int #: Item's action state
         direction: Direction #: Direction item is facing
         velocity: Velocity #: Item's velocity
@@ -638,14 +644,14 @@ class Frame(Base):
         timer: int #: Frames remaining until item expires
         spawn_id: int #: Unique ID per item spawned (0, 1, 2, ...)
         missile_type: int
-        turnip_type: sid.TurnipFace
+        turnip_type: TurnipFace
         is_shot_launched: bool
         charge_power: int
         owner: int
 
 
-        def __init__(self, type: sid.Item, state: int, direction: Direction, velocity: Velocity, position: Position,
-                     damage: int, timer: int, spawn_id: int, missile_type: int, turnip_type: sid.TurnipFace, is_shot_launched: bool,
+        def __init__(self, type: Item, state: int, direction: Direction, velocity: Velocity, position: Position,
+                     damage: int, timer: int, spawn_id: int, missile_type: int, turnip_type: TurnipFace, is_shot_launched: bool,
                      charge_power: int, owner: int):
             self.type = type
             self.state = state
@@ -675,7 +681,7 @@ class Frame(Base):
                 owner = None
 
             return cls(
-                type=try_enum(sid.Item, type),
+                type=try_enum(Item, type),
                 state=state,
                 direction=Direction(direction) if direction != 0 else None,
                 velocity=Velocity(x_vel, y_vel),
@@ -684,7 +690,7 @@ class Frame(Base):
                 timer=timer,
                 spawn_id=spawn_id,
                 missile_type=missile_type,
-                turnip_type=try_enum(sid.TurnipFace, turnip_type),
+                turnip_type=try_enum(TurnipFace, turnip_type),
                 is_shot_launched=is_shot_launched,
                 charge_power=charge_power,
                 owner=owner)
@@ -835,100 +841,6 @@ class Direction(IntEnum):
     LEFT = -1
     DOWN = 0 # not used by slippi replay data, but useful for stats enumerations
     RIGHT = 1
-
-
-class Attack(IntEnum):
-    NON_STALING = 1
-    JAB_1 = 2
-    JAB_2 = 3
-    JAB_3 = 4
-    RAPID_JABS = 5
-    DASH_ATTACK = 6
-    SIDE_TILT = 7
-    UP_TILT = 8
-    DOWN_TILT = 9
-    SIDE_SMASH = 10
-    UP_SMASH = 11
-    DOWN_SMASH = 12
-    NAIR = 13
-    FAIR = 14
-    BAIR = 15
-    UAIR = 16
-    DAIR = 17
-    NEUTRAL_SPECIAL = 18
-    SIDE_SPECIAL = 19
-    UP_SPECIAL = 20
-    DOWN_SPECIAL = 21
-    KIRBY_HAT_MARIO_NEUTRAL_SPECIAL = 22
-    KIRBY_HAT_FOX_NEUTRAL_SPECIAL = 23
-    KIRBY_HAT_CFALCON_NEUTRAL_SPECIAL = 24
-    KIRBY_HAT_DKNEUTRAL_SPECIAL = 25
-    KIRBY_HAT_BOWSER_NEUTRAL_SPECIAL = 26
-    KIRBY_HAT_LINK_NEUTRAL_SPECIAL = 27
-    KIRBY_HAT_SHEIK_NEUTRAL_SPECIAL = 28
-    KIRBY_HAT_NESS_NEUTRAL_SPECIAL = 29
-    KIRBY_HAT_PEACH_NEUTRAL_SPECIAL = 30
-    KIRBY_HAT_ICE_CLIMBER_NEUTRAL_SPECIAL = 31
-    KIRBY_HAT_PIKACHU_NEUTRAL_SPECIAL = 32
-    KIRBY_HAT_SAMUS_NEUTRAL_SPECIAL = 33
-    KIRBY_HAT_YOSHI_NEUTRAL_SPECIAL = 34
-    KIRBY_HAT_JIGGLYPUFF_NEUTRAL_SPECIAL = 35
-    KIRBY_HAT_MEWTWO_NEUTRAL_SPECIAL = 36
-    KIRBY_HAT_LUIGI_NEUTRAL_SPECIAL = 37
-    KIRBY_HAT_MARTH_NEUTRAL_SPECIAL = 38
-    KIRBY_HAT_ZELDA_NEUTRAL_SPECIAL = 39
-    KIRBY_HAT_YOUNG_LINK_NEUTRAL_SPECIAL = 40
-    KIRBY_HAT_DOC_NEUTRAL_SPECIAL = 41
-    KIRBY_HAT_FALCO_NEUTRAL_SPECIAL = 42
-    KIRBY_HAT_PICHU_NEUTRAL_SPECIAL = 43
-    KIRBY_HAT_GAME_AND_WATCH_NEUTRAL_SPECIAL = 44
-    KIRBY_HAT_GANON_NEUTRAL_SPECIAL = 45
-    KIRBY_HAT_ROY_NEUTRAL_SPECIAL = 46
-    GET_UP_ATTACK_FROM_BACK = 50
-    GET_UP_ATTACK_FROM_FRONT = 51
-    PUMMEL = 52
-    FORWARD_THROW = 53
-    BACK_THROW = 54
-    UP_THROW = 55
-    DOWN_THROW = 56
-    CARGO_FORWARD_THROW = 57
-    CARGO_BACK_THROW = 58
-    CARGO_UP_THROW = 59
-    CARGO_DOWN_THROW = 60
-    LEDGE_GET_UP_ATTACK_100 = 61
-    LEDGE_GET_UP_ATTACK = 62
-    BEAM_SWORD_JAB = 63
-    BEAM_SWORD_TILT_SWING = 64
-    BEAM_SWORD_SMASH_SWING = 65
-    BEAM_SWORD_DASH_SWING = 66
-    HOME_RUN_BAT_JAB = 67
-    HOME_RUN_BAT_TILT_SWING = 68
-    HOME_RUN_BAT_SMASH_SWING = 69
-    HOME_RUN_BAT_DASH_SWING = 70
-    PARASOL_JAB = 71
-    PARASOL_TILT_SWING = 72
-    PARASOL_SMASH_SWING = 73
-    PARASOL_DASH_SWING = 74
-    FAN_JAB = 75
-    FAN_TILT_SWING = 76
-    FAN_SMASH_SWING = 77
-    FAN_DASH_SWING = 78
-    STAR_ROD_JAB = 79
-    STAR_ROD_TILT_SWING = 80
-    STAR_ROD_SMASH_SWING = 81
-    STAR_ROD_DASH_SWING = 82
-    LIPS_STICK_JAB = 83
-    LIPS_STICK_TILT_SWING = 84
-    LIPS_STICK_SMASH_SWING = 85
-    LIPS_STICK_DASH_SWING = 86
-    OPEN_PARASOL = 87
-    RAY_GUN_SHOOT = 88
-    FIRE_FLOWER_SHOOT = 89
-    SCREW_ATTACK = 90
-    SUPER_SCOPE_RAPID = 91
-    SUPER_SCOPE_CHARGED = 92
-    HAMMER = 93
-
 
 class Triggers(Base):
     __slots__ = 'logical', 'physical'

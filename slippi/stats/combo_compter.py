@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from .common import *
-from .event import Position
-from .util import *
+from ..event import Position
+from ..util import *
 
 COMBO_LENIENCY = 45
 PRE_COMBO_BUFFER_FRAMES = 60

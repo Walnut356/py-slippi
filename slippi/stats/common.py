@@ -3,11 +3,13 @@ from math import atan2, degrees, tau
 from os import PathLike
 from typing import Any, Optional
 
-from .event import Frame, Position, Start, StateFlags, Velocity
-from .game import Game
-from .id import ActionRange, ActionState, InGameCharacter, Stage
-from .metadata import Metadata
-from .util import *
+from ..event import Frame, Position, Start, StateFlags, Velocity
+from ..game import Game
+from ..enums.state import ActionRange, ActionState
+from ..enums.character import InGameCharacter
+from ..enums.stage import Stage
+from ..metadata import Metadata
+from ..util import *
 
 
 class ComputerBase():

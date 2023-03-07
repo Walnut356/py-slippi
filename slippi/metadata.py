@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional, Tuple
 
 from . import event as evt
-from . import id as sid
+from .enums import InGameCharacter
 from .util import *
 
 
@@ -59,11 +59,11 @@ class Metadata(Base):
 
     class Player(Base):
         """Contains metadata from the perspective of slippi, including character usage, netplay info, connect code, and display name"""
-        characters: Dict[sid.InGameCharacter, int] #: Character(s) used, with usage duration in frames (for Zelda/Sheik)
+        characters: Dict[InGameCharacter, int] #: Character(s) used, with usage duration in frames (for Zelda/Sheik)
         connect_code: Optional[str]
         display_name: Optional[str]
 
-        def __init__(self, characters: Dict[sid.InGameCharacter, int], 
+        def __init__(self, characters: Dict[InGameCharacter, int], 
                      netplay: Optional[Metadata.Player.Netplay] = None):
             self.characters = characters
             if netplay:
@@ -77,7 +77,7 @@ class Metadata(Base):
         def _parse(cls, json):
             characters = {}
             for char_id, duration in json['characters'].items():
-                characters[sid.InGameCharacter(int(char_id))] = duration
+                characters[InGameCharacter(int(char_id))] = duration
             try:
                 netplay = cls.Netplay(code=json['names']['code'], name=json['names']['netplay'])
             except KeyError: netplay = None

@@ -1,4 +1,8 @@
-import enum, os, re, struct, sys
+import enum
+import os
+import re
+import struct
+import sys
 
 from .log import log
 
