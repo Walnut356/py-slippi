@@ -22,17 +22,17 @@ def get_default_header(stats_computer: StatsComputer, connect_code: str) -> dict
     
     header = {
             "match_id" : stats_computer.rules.match_id,
-            "date_time" : formatted_date,
+            "date_time" : formatted_date, 
             "duration" : formatted_time,
             "ranked" : stats_computer.rules.is_ranked,
             "win" : stats_computer.is_winner(player_port),
-            "char" : id.InGameCharacter(list(stats.players[player_port].characters.keys())[0]).name, #lmao
-            "opnt_Char" : id.InGameCharacter(list(stats.players[opponent_port].characters.keys())[0]).name
+            "char" : id.InGameCharacter(list(stats_computer.players[player_port].characters.keys())[0]).name, #lmao
+            "opnt_Char" : id.InGameCharacter(list(stats_computer.players[opponent_port].characters.keys())[0]).name
             }
 
     return header
 
-
+ 
 def get_wavedash_data(replay, connect_code) -> dict:
     stats = StatsComputer()
     stats.prime_replay(replay)
@@ -48,7 +48,7 @@ def get_dash_data(replay, connect_code) -> dict:
     stats.prime_replay(replay)
     stats.wavedash_compute(connect_code)
 
-    header = get_default_header(stats)
+    header = get_default_header(stats, connect_code)
     dash_data = [header | dash.__dict__ for dash in stats.data.dash]
     return dash_data
 
@@ -58,7 +58,7 @@ def get_tech_data(replay, connect_code) -> dict:
     stats.prime_replay(replay)
     stats.wavedash_compute(connect_code)
 
-    header = get_default_header(stats)
+    header = get_default_header(stats, connect_code)
     tech_data = [header | tech.__dict__ for tech in stats.data.tech]
     return tech_data
 
@@ -67,7 +67,7 @@ def get_take_hit_data(replay, connect_code) -> dict:
     stats.prime_replay(replay)
     stats.wavedash_compute(connect_code)
 
-    header = get_default_header(stats)
+    header = get_default_header(stats, connect_code)
     take_hit_data = [header | take_hit.__dict__ for take_hit in stats.data.take_hit]
     return take_hit_data
 
@@ -76,7 +76,7 @@ def get_l_cancel_data(replay, connect_code) -> dict:
     stats.prime_replay(replay)
     stats.wavedash_compute(connect_code)
 
-    header = get_default_header(stats)
+    header = get_default_header(stats, connect_code)
     l_cancel_data = [header | l_cancel.__dict__ for l_cancel in stats.data.l_cancel]
     return l_cancel_data
 

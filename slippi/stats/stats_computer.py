@@ -52,16 +52,15 @@ class StatsComputer(ComputerBase):
 
     def wavedash_compute(self, connect_code:Optional[str]=None) -> list[WavedashData]:
         player_ports: list[int]
-        opponent_port: int
         
         if connect_code:
-            player_ports, opponent_port = self.generate_player_ports(connect_code)
+            player_ports, _ = self.generate_player_ports(connect_code)
         else:
             player_ports = self.generate_player_ports()
             
         for port_index, player_port in enumerate(player_ports):
             if len(player_ports) == 2:
-                opponent_port = player_ports[port_index - 1] # Only works for 2 ports
+                _ = player_ports[port_index - 1] # Only works for 2 ports
 
             for i, frame in enumerate(self.all_frames):
                 player_frame = self.port_frame(player_port, frame)
@@ -94,16 +93,15 @@ class StatsComputer(ComputerBase):
     
     def dash_compute(self, connect_code:Optional[str]=None) -> list[DashData]:
         player_ports = None
-        opponent_port = None
         
         if connect_code:
-            player_ports, opponent_port = self.generate_player_ports(connect_code)
+            player_ports, _ = self.generate_player_ports(connect_code)
         else:
             player_ports = self.generate_player_ports()
 
         for port_index, player_port in enumerate(player_ports):
             if len(player_ports) == 2:
-                opponent_port = player_ports[port_index - 1] # Only works for 2 ports
+                _ = player_ports[port_index - 1] # Only works for 2 ports
             
             self.dash_state = DashState(player_port, connect_code)
             
@@ -295,17 +293,16 @@ class StatsComputer(ComputerBase):
     def l_cancel_compute(self, connect_code: Optional[str]=None):
         
         player_ports: list[int]
-        opponent_port: int
         
         if connect_code:
-            player_ports, opponent_port = self.generate_player_ports(connect_code)
+            player_ports, _ = self.generate_player_ports(connect_code)
             self.did_win = self.is_winner(connect_code)
         else:
             player_ports = self.generate_player_ports()
 
         for port_index, player_port in enumerate(player_ports):
             if len(player_ports) == 2:
-                opponent_port = player_ports[port_index - 1] # Only works for 2 ports
+                _ = player_ports[port_index - 1] # Only works for 2 ports
             self.data.l_cancel = LCancelData(player_port, connect_code)
 
             for i, frame in enumerate(self.all_frames):
